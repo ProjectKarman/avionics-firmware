@@ -207,10 +207,10 @@
     <ListValues>
       <Value>..</Value>
       <Value>../src</Value>
-      <Value>../freertos/port</Value>
-      <Value>../freertos/source/include</Value>
-      <Value>../freertos/source</Value>
-      <Value>../freertos</Value>
+      <Value>../src/freertos/port</Value>
+      <Value>../src/freertos/source</Value>
+      <Value>../src/freertos/source/include</Value>
+      <Value>../src/freertos</Value>
       <Value>../AtmelDrivers</Value>
       <Value>../src/Config</Value>
       <Value>../common/applications/user_application/user_board/config</Value>
@@ -227,7 +227,7 @@
       <Value>../src/ASF/xmega/drivers/sleep</Value>
       <Value>../src/ASF/common/services/sleepmgr</Value>
       <Value>../src/ASF/common/services/ioport</Value>
-      <Value>../drivers</Value>
+      <Value>../src/drivers</Value>
     </ListValues>
   </avrgcc.compiler.directories.IncludePaths>
   <avrgcc.compiler.optimization.level>Optimize (-O1)</avrgcc.compiler.optimization.level>
@@ -269,102 +269,6 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="freertos\FreeRTOSConfig.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\port\heap_1.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\port\port.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\port\portmacro.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\croutine.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\croutine.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\FreeRTOS.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\list.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\mpu_wrappers.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\portable.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\projdefs.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\queue.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\semphr.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\StackMacros.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\task.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\include\timers.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\list.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\queue.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\tasks.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="freertos\source\timers.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="main.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\port_driver.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\port_driver.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\TC_driver.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\TC_driver.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\twi_master_driver.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\twi_master_driver.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\twi_slave_driver.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\twi_slave_driver.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\usart.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\usart_driver_RTOS.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="drivers\usart_driver_RTOS.h">
-      <SubType>compile</SubType>
-    </Compile>
     <None Include="src\ASF\common\boards\board.h">
       <SubType>compile</SubType>
     </None>
@@ -500,31 +404,125 @@
     <None Include="src\Config\conf_sleepmgr.h">
       <SubType>compile</SubType>
     </None>
-    <Compile Include="twi_task.c">
+    <Compile Include="src\drivers\avr_compiler.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="twi_task.h">
+    <Compile Include="src\drivers\port_driver.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="user_board.h">
+    <Compile Include="src\drivers\port_driver.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\TC_driver.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\TC_driver.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\twi_master_driver.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\twi_master_driver.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\twi_slave_driver.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\twi_slave_driver.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\usart.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\usart_driver_RTOS.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\usart_driver_RTOS.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\FreeRTOSConfig.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\port\heap_1.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\port\port.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\port\portmacro.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\croutine.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\croutine.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\FreeRTOS.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\list.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\mpu_wrappers.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\portable.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\projdefs.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\queue.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\semphr.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\StackMacros.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\task.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\include\timers.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\list.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\queue.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\tasks.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\freertos\source\timers.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\main.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\twi_task.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\twi_task.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\user_board.h">
       <SubType>compile</SubType>
     </Compile>
     <None Include="src\asf.h">
       <SubType>compile</SubType>
     </None>
-    <Compile Include="drivers\avr_compiler.h">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="src\ASF\common\boards\user_board.h">
       <SubType>compile</SubType>
     </Compile>
+    <None Include="src\freertos\source\readme.txt">
+      <SubType>compile</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="freertos" />
-    <Folder Include="freertos\source" />
-    <Folder Include="freertos\port" />
-    <Folder Include="freertos\source\include" />
-    <Folder Include="drivers" />
     <Folder Include="src\" />
     <Folder Include="src\ASF\" />
     <Folder Include="src\ASF\common\" />
@@ -552,11 +550,11 @@
     <Folder Include="src\ASF\xmega\utils\bit_handling\" />
     <Folder Include="src\ASF\xmega\utils\preprocessor\" />
     <Folder Include="src\Config\" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="freertos\source\readme.txt">
-      <SubType>compile</SubType>
-    </None>
+    <Folder Include="src\drivers\" />
+    <Folder Include="src\freertos\" />
+    <Folder Include="src\freertos\port\" />
+    <Folder Include="src\freertos\source\" />
+    <Folder Include="src\freertos\source\include\" />
   </ItemGroup>
   <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
 </Project>
