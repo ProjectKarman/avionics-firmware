@@ -4,6 +4,7 @@
  *      Universitaet Erlangen-Nuernberg
  *      LS Informationstechnik (Kommunikationselektronik)
  *      Support email: Yuriy.Kulikov.87@googlemail.com
+ * Copyright (C) 2015 Nigil Lee
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -333,6 +334,8 @@ void vPortYield(void) {
 /*
  * Setup timer 1 compare match A to generate a tick interrupt.
  */
+
+/*
 static void prvSetupTimerInterrupt(void) {
     //Use TCC0 as a tick counter. If this is to be changed, change ISR as well
     TC0_t * tickTimer = &TCC0;
@@ -345,6 +348,11 @@ static void prvSetupTimerInterrupt(void) {
     TC0_SetOverflowIntLevel(tickTimer, TC_OVFINTLVL_LO_gc);
     //enable low level interrupts
     PMIC_EnableLowLevel();
+}
+*/
+
+static void prvSetupTimerInterrupt(void) {
+    
 }
 /*-----------------------------------------------------------*/
 

@@ -15,9 +15,6 @@
 #include "task.h"
 #include "queue.h"
 #include "ioport.h"
-#include "usart_driver_RTOS.h"
-
-#include "twi_task.h"
 
 // YELLOW LED on PORTA-0
 #define	YELLOW	IOPORT_CREATE_PIN(PORTA, 0)
@@ -46,22 +43,6 @@ void blink2(void *p) {
 	}
 }
 
-void uartLoopBack(void *p) {
-	
-	unsigned char znak;
-	
-	UsartBuffer * pc_usart_buffer = usartBufferInitialize(&PC_USART, BAUD19200, 128);
-	usartBufferPutString(pc_usart_buffer, "\n\n\rXMEGA ready", 10);
-	
-	while (1) {
-		
-		if (usartBufferGetByte(pc_usart_buffer, &znak, 0)) {
-			
-			usartBufferPutByte(pc_usart_buffer, znak, 10);
-		}
-	}
-}
-
 int main(void)
 {	
 		
@@ -84,9 +65,7 @@ int main(void)
 	// start tasks
 	xTaskCreate(blink1, (signed char*) "blink1", 1024, NULL, 2, NULL);
 	xTaskCreate(blink2, (signed char*) "blink2", 1024, NULL, 2, NULL);
-	xTaskCreate(uartLoopBack, (signed char*) "uart1", 1024, NULL, 2, NULL);
-	xTaskCreate(twi_example, (signed char*) "twi", 1024, NULL, 2, NULL);
-	
+
 	vTaskStartScheduler();
 	
 	return 0;
