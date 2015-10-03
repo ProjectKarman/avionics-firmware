@@ -109,15 +109,6 @@
 // From module: TC - Timer Counter
 #include <tc.h>
 
-// From module: TWI - Two-Wire Interface - XMEGA implementation
-#include <twi_master.h>
-#include <twi_slave.h>
-#include <xmega_twi/twi_master.h>
-#include <xmega_twi/twi_slave.h>
-
-// From module: TWI - Two-wire Master Interface
-#include <twim.h>
-
 // From module: USART - Serial interface - XMEGA implementation
 #include <serial.h>
 
