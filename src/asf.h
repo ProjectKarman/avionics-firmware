@@ -62,8 +62,17 @@
 // From module: Common build items for user board support templates
 #include <user_board.h>
 
+// From module: DMA - Direct Memory Access
+#include <dma.h>
+
+// From module: GPIO - General purpose Input/Output
+#include <gpio.h>
+
 // From module: Generic board support
 #include <board.h>
+
+// From module: Huge Memory Interface
+#include <hugemem.h>
 
 // From module: IOPORT - General purpose I/O service
 #include <ioport.h>
@@ -80,6 +89,13 @@
 // From module: Part identification macros
 #include <parts.h>
 
+// From module: SPI - Serial Peripheral Interface
+#include <spi.h>
+
+// From module: SPI - XMEGA implementation
+#include <usart_spi.h>
+#include <xmega_usart_spi/usart_spi.h>
+
 // From module: Sleep Controller driver
 #include <sleep.h>
 
@@ -92,6 +108,24 @@
 
 // From module: TC - Timer Counter
 #include <tc.h>
+
+// From module: TWI - Two-Wire Interface - XMEGA implementation
+#include <twi_master.h>
+#include <twi_slave.h>
+#include <xmega_twi/twi_master.h>
+#include <xmega_twi/twi_slave.h>
+
+// From module: TWI - Two-wire Master Interface
+#include <twim.h>
+
+// From module: USART - Serial interface - XMEGA implementation
+#include <serial.h>
+
+// From module: USART - Universal Synchronous/Asynchronous Receiver/Transmitter
+#include <usart.h>
+
+// From module: WDT - Watchdog Timer
+#include <wdt.h>
 
 // From module: XMEGA compiler driver
 #include <compiler.h>
