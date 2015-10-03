@@ -382,6 +382,7 @@ ISR (TCC0_OVF_vect, ISR_NAKED) {
  * tick count.  We don't need to switch context, this can only be done by
  * manual calls to taskYIELD();
  */
+
 ISR (TCC0_OVF_vect, ISR_NAKED)
 {
     vTaskIncrementTick();

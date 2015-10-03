@@ -68,12 +68,14 @@ static tc_callback_t tc_tcc0_ccd_callback;
  * This function will handle interrupt on Timer Counter CO overflow and
  * call the callback function.
  */
+/* Commented out because FreeRTOS is going to use this interrupt with the NAKED attribute
 ISR(TCC0_OVF_vect)
 {
 	if (tc_tcc0_ovf_callback) {
 		tc_tcc0_ovf_callback();
 	}
 }
+*/
 
 /**
  * \internal
