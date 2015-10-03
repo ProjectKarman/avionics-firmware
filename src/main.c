@@ -1,5 +1,5 @@
 /*
- * This is the Main C File for the avonics firmware
+ * This is the Main C File for the avionics firmware
  */
 
 #include "user_board.h"
@@ -9,34 +9,23 @@
 #include "task.h"
 #include "queue.h"
 
-// YELLOW LED on PORTA-0
-#define	YELLOW	IOPORT_CREATE_PIN(PORTA, 0)
-
-// RED LED on PORTA-4
-#define	RED	IOPORT_CREATE_PIN(PORTA, 4)
-
-void blink1(void *p) {
-	
+void blink1(void *p) {	
 	while (1) {
-		
-		// ioport_toggle_pin_level(RED);
-        PORTA.OUT ^= 0x40;
+        PORTA.OUT ^= 0x01;
         vTaskDelay(1000);
 	}
 }
 
 void blink2(void *p) {
-	
 	while (1) {
-		PORTA.OUT ^= 0x80;
-		//ioport_toggle_pin_level(YELLOW);
+		PORTA.OUT ^= 0x02;
 		vTaskDelay(100);
 	}
 }
 
 int main(void)
 {	
-	PORTA.DIR |= 0xC0;
+	PORTA.DIR |= 0x03;
 
 	board_init();
 	
