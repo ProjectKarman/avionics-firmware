@@ -17,4 +17,5 @@ void board_init(void)
 	*/
     pmic_init();
     sysclk_init();
+    ioport_init();
 }

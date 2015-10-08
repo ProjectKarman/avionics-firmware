@@ -30,15 +30,15 @@
   <options>
     <option id="common.boards" value="Add" config="" content-id="Atmel.ASF" />
     <option id="common.services.basic.clock" value="Add" config="" content-id="Atmel.ASF" />
+    <option id="common.services.basic.gpio" value="Add" config="" content-id="Atmel.ASF" />
     <option id="common.services.ioport" value="Add" config="" content-id="Atmel.ASF" />
+    <option id="common.services.basic.serial" value="Add" config="" content-id="Atmel.ASF" />
     <option id="xmega.drivers.ac" value="Add" config="" content-id="Atmel.ASF" />
     <option id="xmega.drivers.cpu" value="Add" config="" content-id="Atmel.ASF" />
-    <option id="xmega.drivers.tc" value="Add" config="" content-id="Atmel.ASF" />
     <option id="xmega.drivers.dma" value="Add" config="" content-id="Atmel.ASF" />
-    <option id="common.services.basic.gpio" value="Add" config="" content-id="Atmel.ASF" />
-    <option id="common.services.basic.spi_master" value="Add" config="usart_and_standard_spi" content-id="Atmel.ASF" />
+    <option id="xmega.drivers.tc" value="Add" config="" content-id="Atmel.ASF" />
     <option id="xmega.drivers.wdt" value="Add" config="" content-id="Atmel.ASF" />
-    <option id="common.services.basic.serial" value="Add" config="" content-id="Atmel.ASF" />
+    <option id="common.services.basic.spi_master" value="Add" config="usart_and_standard_spi" content-id="Atmel.ASF" />
   </options>
   <configurations />
   <files>
@@ -96,8 +96,6 @@
     <file path="src/ASF/common/services/hugemem/generic/hugemem.h" framework="" version="3.19.0" source="common\services\hugemem\generic\hugemem.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/xmega/drivers/dma/dma.c" framework="" version="3.19.0" source="xmega\drivers\dma\dma.c" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/xmega/drivers/dma/dma.h" framework="" version="3.19.0" source="xmega\drivers\dma\dma.h" changed="False" content-id="Atmel.ASF" />
-    <file path="src/ASF/xmega/drivers/spi/spi.c" framework="" version="3.19.0" source="xmega\drivers\spi\spi.c" changed="False" content-id="Atmel.ASF" />
-    <file path="src/ASF/xmega/drivers/spi/spi.h" framework="" version="3.19.0" source="xmega\drivers\spi\spi.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/xmega/drivers/wdt/wdt.c" framework="" version="3.19.0" source="xmega\drivers\wdt\wdt.c" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/xmega/drivers/wdt/wdt.h" framework="" version="3.19.0" source="xmega\drivers\wdt\wdt.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/common/services/gpio/gpio.h" framework="" version="3.19.0" source="common\services\gpio\gpio.h" changed="False" content-id="Atmel.ASF" />
@@ -106,6 +104,10 @@
     <file path="src/ASF/common/services/serial/xmega_usart/usart_serial.h" framework="" version="3.19.0" source="common\services\serial\xmega_usart\usart_serial.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/common/services/serial/serial.h" framework="" version="3.19.0" source="common\services\serial\serial.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/Config/conf_usart_serial.h" framework="" version="3.19.0" source="common\services\serial\xmega_usart\module_config\conf_usart_serial.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/xmega/drivers/usart/usart.c" framework="" version="3.19.0" source="xmega\drivers\usart\usart.c" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/xmega/drivers/usart/usart.h" framework="" version="3.19.0" source="xmega\drivers\usart\usart.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/xmega/drivers/spi/spi.c" framework="" version="3.19.0" source="xmega\drivers\spi\spi.c" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/xmega/drivers/spi/spi.h" framework="" version="3.19.0" source="xmega\drivers\spi\spi.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/common/services/spi/xmega_spi/spi_master.c" framework="" version="3.19.0" source="common\services\spi\xmega_spi\spi_master.c" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/common/services/spi/spi_master.h" framework="" version="3.19.0" source="common\services\spi\spi_master.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/common/services/spi/xmega_spi/spi_master.h" framework="" version="3.19.0" source="common\services\spi\xmega_spi\spi_master.h" changed="False" content-id="Atmel.ASF" />
@@ -114,8 +116,6 @@
     <file path="src/ASF/common/services/spi/xmega_usart_spi/usart_spi.h" framework="" version="3.19.0" source="common\services\spi\xmega_usart_spi\usart_spi.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/common/services/spi/usart_spi.h" framework="" version="3.19.0" source="common\services\spi\usart_spi.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/Config/conf_usart_spi.h" framework="" version="3.19.0" source="common\services\spi\xmega_usart_spi\module_config\conf_usart_spi.h" changed="False" content-id="Atmel.ASF" />
-    <file path="src/ASF/xmega/drivers/usart/usart.c" framework="" version="3.19.0" source="xmega\drivers\usart\usart.c" changed="False" content-id="Atmel.ASF" />
-    <file path="src/ASF/xmega/drivers/usart/usart.h" framework="" version="3.19.0" source="xmega\drivers\usart\usart.h" changed="False" content-id="Atmel.ASF" />
   </files>
   <documentation help="http://asf.atmel.com/docs/3.19.0/common.applications.user_application.user_board.xmegaau/html/index.html" />
   <offline-documentation help="" />
@@ -188,14 +188,14 @@
       <Value>../src/ASF/xmega/drivers/tc</Value>
       <Value>../src/ASF/common/services/hugemem</Value>
       <Value>../src/ASF/xmega/drivers/dma</Value>
-      <Value>../src/ASF/xmega/drivers/spi</Value>
       <Value>../src/ASF/xmega/drivers/wdt</Value>
       <Value>../src/ASF/common/services/gpio</Value>
       <Value>../src/ASF/common/services/serial/xmega_usart</Value>
       <Value>../src/ASF/common/services/serial</Value>
+      <Value>../src/ASF/xmega/drivers/usart</Value>
+      <Value>../src/ASF/xmega/drivers/spi</Value>
       <Value>../src/ASF/common/services/spi/xmega_spi</Value>
       <Value>../src/ASF/common/services/spi</Value>
-      <Value>../src/ASF/xmega/drivers/usart</Value>
     </ListValues>
   </avrgcc.compiler.directories.IncludePaths>
   <avrgcc.compiler.optimization.level>Optimize for size (-Os)</avrgcc.compiler.optimization.level>
@@ -232,14 +232,14 @@
       <Value>../src/ASF/xmega/drivers/tc</Value>
       <Value>../src/ASF/common/services/hugemem</Value>
       <Value>../src/ASF/xmega/drivers/dma</Value>
-      <Value>../src/ASF/xmega/drivers/spi</Value>
       <Value>../src/ASF/xmega/drivers/wdt</Value>
       <Value>../src/ASF/common/services/gpio</Value>
       <Value>../src/ASF/common/services/serial/xmega_usart</Value>
       <Value>../src/ASF/common/services/serial</Value>
+      <Value>../src/ASF/xmega/drivers/usart</Value>
+      <Value>../src/ASF/xmega/drivers/spi</Value>
       <Value>../src/ASF/common/services/spi/xmega_spi</Value>
       <Value>../src/ASF/common/services/spi</Value>
-      <Value>../src/ASF/xmega/drivers/usart</Value>
     </ListValues>
   </avrgcc.assembler.general.IncludePaths>
 </AvrGcc>
@@ -289,14 +289,14 @@
       <Value>../src/ASF/xmega/drivers/tc</Value>
       <Value>../src/ASF/common/services/hugemem</Value>
       <Value>../src/ASF/xmega/drivers/dma</Value>
-      <Value>../src/ASF/xmega/drivers/spi</Value>
       <Value>../src/ASF/xmega/drivers/wdt</Value>
       <Value>../src/ASF/common/services/gpio</Value>
       <Value>../src/ASF/common/services/serial/xmega_usart</Value>
       <Value>../src/ASF/common/services/serial</Value>
+      <Value>../src/ASF/xmega/drivers/usart</Value>
+      <Value>../src/ASF/xmega/drivers/spi</Value>
       <Value>../src/ASF/common/services/spi/xmega_spi</Value>
       <Value>../src/ASF/common/services/spi</Value>
-      <Value>../src/ASF/xmega/drivers/usart</Value>
     </ListValues>
   </avrgcc.compiler.directories.IncludePaths>
   <avrgcc.compiler.optimization.level>Optimize (-O1)</avrgcc.compiler.optimization.level>
@@ -334,14 +334,14 @@
       <Value>../src/ASF/xmega/drivers/tc</Value>
       <Value>../src/ASF/common/services/hugemem</Value>
       <Value>../src/ASF/xmega/drivers/dma</Value>
-      <Value>../src/ASF/xmega/drivers/spi</Value>
       <Value>../src/ASF/xmega/drivers/wdt</Value>
       <Value>../src/ASF/common/services/gpio</Value>
       <Value>../src/ASF/common/services/serial/xmega_usart</Value>
       <Value>../src/ASF/common/services/serial</Value>
+      <Value>../src/ASF/xmega/drivers/usart</Value>
+      <Value>../src/ASF/xmega/drivers/spi</Value>
       <Value>../src/ASF/common/services/spi/xmega_spi</Value>
       <Value>../src/ASF/common/services/spi</Value>
-      <Value>../src/ASF/xmega/drivers/usart</Value>
     </ListValues>
   </avrgcc.assembler.general.IncludePaths>
   <avrgcc.assembler.debugging.DebugLevel>Default (-Wa,-g)</avrgcc.assembler.debugging.DebugLevel>
@@ -569,6 +569,12 @@
       <SubType>compile</SubType>
     </None>
     <Compile Include="src\drivers\avr_compiler.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\nrf24l01p.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\nrf24l01p.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\freertos\FreeRTOSConfig.h">
