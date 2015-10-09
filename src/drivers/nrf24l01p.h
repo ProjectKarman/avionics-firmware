@@ -9,6 +9,9 @@
 #ifndef NRF24L01P_H_
 #define NRF24L01P_H_
 
+#include <inttypes.h>
+#include <stddef.h>
+
 // Driver Types
 enum nrf24l01p_data_rate {
   NRF24L01P_DR_250K,
@@ -16,10 +19,18 @@ enum nrf24l01p_data_rate {
   NRF24L01P_DR_2M,
 };
 
+enum nrf24l01p_pa_power {
+  NRF24L01P_PWR_0DBM,
+  NRF24L01P_PWR_N6DBM,
+  NRF24L01P_PWR_N12DBM,
+  NRF24L01P_PWR_N18DBM,
+};
+
 // Driver Functions
 void nrf24l01p_init(void);
 void nrf24l01p_sync_regs(void);
 void nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr);
+void nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr);
 void nrf24l01p_set_channel(uint8_t channel_num);
 void nrf24l01p_open(void);
 void nrf24l01p_wake(void);

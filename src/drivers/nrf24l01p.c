@@ -40,8 +40,8 @@
 #define RF_SETUP_PLL_LOCK (1 << 4)
 #define RF_SETUP_RF_DR_LOW (1 << 5)
 #define RF_SETUP_RF_DR_HIGH (1 << 3)
-#define RF_SETUP_RF_PWR0 (1 << 2)
-#define RF_SETUP_RF_PWR1 (1 << 1)
+#define RF_SETUP_RF_PWR1 (1 << 2)
+#define RF_SETUP_RF_PWR0 (1 << 1)
 
 // IO Definitions
 #define SPI_MOSI_PIN IOPORT_CREATE_PIN(PORTC, 3)
@@ -71,14 +71,12 @@ void nrf24l01p_init(void) {
   ioport_set_pin_dir(SPI_MISO_PIN, IOPORT_DIR_INPUT);
   ioport_set_pin_dir(SPI_SCLK_PIN, IOPORT_DIR_OUTPUT);
   ioport_set_pin_dir(SPI_CS_PIN, IOPORT_DIR_OUTPUT);
-  ioport_set_pin_mode(SPI_CS_PIN, IOPORT_MODE_INVERT_PIN);
   ioport_set_pin_dir(CE_PIN, IOPORT_DIR_OUTPUT);
   ioport_set_pin_dir(IRQ_PIN, IOPORT_DIR_INPUT);
 
   // Init SPI
   usart_spi_init(SPI_CNTL);
   usart_spi_setup_device(SPI_CNTL, &conf, SPI_MODE_0, 8000000, 0);
-  //usart_spi_enable(SPI_CNTL);
   spi_endframe();
 }
 
@@ -102,6 +100,28 @@ void nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr) {
       local_reg_rf_setup &= ~RF_SETUP_RF_DR_LOW;
       local_reg_rf_setup |= RF_SETUP_RF_DR_HIGH;
       break;
+  }
+  nrf24l01p_write_register(REG_RF_SETUP, local_reg_rf_setup);
+};
+
+void nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr) {
+  switch(new_pwr)
+  {
+    case NRF24L01P_PWR_0DBM:
+      local_reg_rf_setup |= RF_SETUP_RF_PWR1 | RF_SETUP_RF_PWR0;
+      break;
+    case NRF24L01P_PWR_N6DBM:
+      local_reg_rf_setup |= RF_SETUP_RF_PWR1;
+      local_reg_rf_setup &= ~RF_SETUP_RF_PWR0;
+      break;
+    case NRF24L01P_PWR_N12DBM:
+      local_reg_rf_setup &= ~RF_SETUP_RF_PWR1;
+      local_reg_rf_setup |= RF_SETUP_RF_PWR0;
+      break;
+    case NRF24L01P_PWR_N18DBM:
+    local_reg_rf_setup &= ~RF_SETUP_RF_PWR1;
+    local_reg_rf_setup &= ~RF_SETUP_RF_PWR0;
+    break;
   }
   nrf24l01p_write_register(REG_RF_SETUP, local_reg_rf_setup);
 };
@@ -179,9 +199,8 @@ void nrf24l01p_data_test(void) {
     
     nrf24l01p_send_payload(test_data, 32);
     ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_HIGH);
-    vTaskDelay(1);
+    _delay_us(30);
     ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_LOW);
-    vTaskDelay(30);
   }
 }
 
