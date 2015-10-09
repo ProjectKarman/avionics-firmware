@@ -28,7 +28,7 @@ enum nrf24l01p_pa_power {
 
 // Driver Functions
 void nrf24l01p_init(void);
-void nrf24l01p_sync_regs(void);
+void nrf24l01p_read_regs(void);
 void nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr);
 void nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr);
 void nrf24l01p_set_channel(uint8_t channel_num);

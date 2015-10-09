@@ -80,7 +80,7 @@ void nrf24l01p_init(void) {
   spi_endframe();
 }
 
-void nrf24l01p_sync_regs(void) {
+void nrf24l01p_read_regs(void) {
   nrf24l01p_read_register(REG_CONFIG, &local_reg_config);
   nrf24l01p_read_register(REG_RF_SETUP, &local_reg_rf_setup);
 }

@@ -12,7 +12,7 @@
  #include "nrf24l01p.h"
 
  void transceiver_task_loop(void *p) {
-  nrf24l01p_sync_regs();
+  nrf24l01p_read_regs();
   nrf24l01p_wake();
   vTaskDelay(3);
   nrf24l01p_flush_rx_fifo();
