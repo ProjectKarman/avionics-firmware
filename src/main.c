@@ -9,9 +9,7 @@
 #include "task.h"
 #include "queue.h"
 
-#include "nrf24l01p.h"
-
-#include "transceiver_task.h"
+#include "transceiver.h"
 
 #define LEDA IOPORT_CREATE_PIN(PORTA, 0)
 #define LEDB IOPORT_CREATE_PIN(PORTA, 1)

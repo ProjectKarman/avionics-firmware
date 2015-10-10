@@ -163,6 +163,10 @@ void nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
   spi_endframe();
 }
 
+void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, void (*xfer_complete_callback)()) {
+  spi_startframe();
+}
+
 void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value) {
   spi_startframe();
   usart_spi_write_single(SPI_CNTL, SPICMD_R_REGISTER(address));
