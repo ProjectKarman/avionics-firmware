@@ -290,7 +290,7 @@ static void prvSetupTimerInterrupt(void);
     return pxTopOfStack;
 }
 /*-----------------------------------------------------------*/
-portBASE_TYPE xPortStartScheduler(void) {
+BaseType_t xPortStartScheduler(void) {
 
     /* Setup the hardware to generate the tick. */
     prvSetupTimerInterrupt();
@@ -317,13 +317,34 @@ void vPortEndScheduler(void) {
  * Manual context switch.  The first thing we do is save the registers so we
  * can use a naked attribute.
  */
-void vPortYield(void) __attribute__ ( ( naked ) );
-void vPortYield(void) {
-    portSAVE_CONTEXT();
-    vTaskSwitchContext();
-    portRESTORE_CONTEXT();
+void vPortYield( void ) __attribute__ ( ( naked ) );
+void vPortYield( void )
+{
+	portSAVE_CONTEXT();
+	vTaskSwitchContext();
+	portRESTORE_CONTEXT();
 
-    asm volatile ( "ret" );
+	asm volatile ( "ret" );
+}
+/*-----------------------------------------------------------*/
+
+/*
+ * Context switch function used by the tick.  This must be identical to 
+ * vPortYield() from the call to vTaskSwitchContext() onwards.  The only
+ * difference from vPortYield() is the tick count is incremented as the
+ * call comes from the tick ISR.
+ */
+void vPortYieldFromTick( void ) __attribute__ ( ( naked ) );
+void vPortYieldFromTick( void )
+{
+	portSAVE_CONTEXT();
+	if( xTaskIncrementTick() != pdFALSE )
+	{
+		vTaskSwitchContext();
+	}
+	portRESTORE_CONTEXT();
+
+	asm volatile ( "ret" );
 }
 /*-----------------------------------------------------------*/
 
@@ -368,10 +389,7 @@ ISR (TCC0_OVF_vect, ISR_NAKED) {
      * difference from vPortYield() is the tick count is incremented as the
      * call comes from the tick ISR.
      */
-    portSAVE_CONTEXT();
-    vTaskIncrementTick();
-    vTaskSwitchContext();
-    portRESTORE_CONTEXT();
+    vPortYieldFromTick();
     asm volatile ( "reti" );
 }
 
@@ -385,6 +403,6 @@ ISR (TCC0_OVF_vect, ISR_NAKED) {
 
 ISR (TCC0_OVF_vect, ISR_NAKED)
 {
-    vTaskIncrementTick();
+    xTaskIncrementTick();
 }
 #endif
