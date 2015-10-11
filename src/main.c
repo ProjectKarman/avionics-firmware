@@ -38,7 +38,7 @@ int main(void)
 	// start tasks
 	xTaskCreate(blink1, (signed char*) "blink1", 1024, NULL, 2, NULL);
 	xTaskCreate(blink2, (signed char*) "blink2", 1024, NULL, 2, NULL);
-  xTaskCreate(transceiver_task_loop, (signed char*) "transceiver", 1024, NULL, 2, NULL);
+  transceiver_start_task();
 
 	vTaskStartScheduler();
 	

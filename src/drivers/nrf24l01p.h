@@ -38,6 +38,7 @@ void nrf24l01p_sleep(void);
 void nrf24l01p_flush_tx_fifo(void);
 void nrf24l01p_flush_rx_fifo(void);
 void nrf24l01p_send_payload(uint8_t *data, size_t data_len);
+void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, dma_callback_t xfer_complete_callback);
 void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value);
 void nrf24l01p_write_register(uint8_t address, uint8_t new_value);
 void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, size_t value_len);

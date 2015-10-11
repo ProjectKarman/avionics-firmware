@@ -19,5 +19,6 @@ void board_init(void)
   pmic_init();
   sysclk_init();
   ioport_init();
+  dma_enable();
   nrf24l01p_init();
 }

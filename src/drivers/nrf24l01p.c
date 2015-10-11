@@ -10,6 +10,7 @@
 #include "nrf24l01p.h"
 #include "usart_spi.h"
 #include <util/delay.h>
+#include <string.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -31,6 +32,7 @@
 #define REG_RF_CH 0x05
 #define REG_RF_SETUP 0x06
 #define REG_TX_ADDR 0x10
+#define REG_FIFO_STATUS 0x17
 
 // CONFIG reg bits
 #define CONFIG_PRIM_RX (1 << 0)
@@ -51,19 +53,20 @@
 #define CE_PIN IOPORT_CREATE_PIN(PORTB, 7)
 #define IRQ_PIN IOPORT_CREATE_PIN(PORTC, 0)
 
-#define SPI_CNTL (&USARTC0)
+// Peripheral Definitions
+#define SPI_CNTL_USART USARTC0
+#define SPI_CNTL (&SPI_CNTL_USART)
+#define DMA_CHANNEL 1
 
 // Function Prototypes
 static void spi_startframe(void);
 static void spi_endframe(void);
+static void dma_channel_callback(enum dma_channel_status status);
 
 // Driver Variables
 static uint8_t local_reg_config;
 static uint8_t local_reg_rf_setup;
-
-struct usart_spi_device conf = {
-    .id = SPI_CS_PIN
-};
+static dma_callback_t dma_callback;
 
 void nrf24l01p_init(void) {
   // Init GPIOs
@@ -75,8 +78,11 @@ void nrf24l01p_init(void) {
   ioport_set_pin_dir(IRQ_PIN, IOPORT_DIR_INPUT);
 
   // Init SPI
+  struct usart_spi_device spi_conf = {
+    .id = SPI_CS_PIN
+  };
   usart_spi_init(SPI_CNTL);
-  usart_spi_setup_device(SPI_CNTL, &conf, SPI_MODE_0, 8000000, 0);
+  usart_spi_setup_device(SPI_CNTL, &spi_conf, SPI_MODE_0, 8000000, 0);
   spi_endframe();
 }
 
@@ -163,8 +169,28 @@ void nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
   spi_endframe();
 }
 
-void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, void (*xfer_complete_callback)()) {
+void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, dma_callback_t xfer_complete_callback) {
   spi_startframe();
+
+  struct dma_channel_config dmach_conf;
+  memset(&dmach_conf, 0, sizeof(dmach_conf));
+  dma_channel_set_burst_length(&dmach_conf, DMA_CH_BURSTLEN_1BYTE_gc);
+  dma_channel_set_transfer_count(&dmach_conf, data_len);
+  dma_channel_set_src_reload_mode(&dmach_conf, DMA_CH_SRCRELOAD_TRANSACTION_gc);
+  dma_channel_set_dest_reload_mode(&dmach_conf, DMA_CH_DESTRELOAD_NONE_gc);
+  dma_channel_set_src_dir_mode(&dmach_conf, DMA_CH_SRCDIR_INC_gc);
+  dma_channel_set_dest_dir_mode(&dmach_conf, DMA_CH_DESTDIR_FIXED_gc);
+  dma_channel_set_source_address(&dmach_conf, (uint16_t)(uintptr_t)data);
+  dma_channel_set_destination_address(&dmach_conf, (uint16_t)(uintptr_t)&SPI_CNTL_USART.DATA);
+  dma_channel_set_trigger_source(&dmach_conf, DMA_CH_TRIGSRC_USARTC0_DRE_gc);
+  dma_channel_set_single_shot(&dmach_conf);
+  dma_callback = xfer_complete_callback;
+  dma_set_callback(DMA_CHANNEL, dma_channel_callback);
+  dma_channel_set_interrupt_level(&dmach_conf, DMA_INT_LVL_MED);
+  dma_channel_write_config(DMA_CHANNEL, &dmach_conf);
+
+  usart_spi_write_single(SPI_CNTL, SPICMD_W_TX_PAYLOAD);
+  dma_channel_enable(DMA_CHANNEL);
 }
 
 void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value) {
@@ -215,3 +241,8 @@ static void spi_startframe(void) {
 static void spi_endframe() {
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_HIGH);
 }
+
+static void dma_channel_callback(enum dma_channel_status status) {
+  spi_endframe();
+  dma_callback(status);
+};
