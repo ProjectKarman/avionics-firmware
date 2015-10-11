@@ -5,14 +5,14 @@
  *  Author: Nigil Lee
  */ 
 
- #include "FreeRTOS.h"
- #include "task.h"
- #include "queue.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
 
- #include "transceiver.h"
- #include "nrf24l01p.h"
-
- static QueueHandle_t transciver_send_queue;
+#include "transceiver.h"
+#include "nrf24l01p.h"
+ 
+static QueueHandle_t transciver_send_queue;
 
 static void init_nrf24l01p();
 
