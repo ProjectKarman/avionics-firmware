@@ -119,6 +119,19 @@ void nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr) {
   nrf24l01p_write_register(REG_RF_SETUP, local_reg_rf_setup);
 };
 
+void nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode) {
+  switch(mode)
+  {
+    case NRF24L01P_MODE_TX:
+      local_reg_config &= ~CONFIG_PRIM_RX;
+  	  break;
+    case NRF24L01P_MODE_RX:
+      local_reg_config |= CONFIG_PRIM_RX;
+  	  break;
+  }
+  nrf24l01p_write_register(REG_CONFIG, local_reg_config);
+};
+
 void nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr) {
   switch(new_pwr)
   {

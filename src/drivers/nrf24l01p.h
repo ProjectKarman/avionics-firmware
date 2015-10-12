@@ -19,6 +19,11 @@ enum nrf24l01p_data_rate {
   NRF24L01P_DR_2M,
 };
 
+enum nrf24l01p_radio_mode {
+  NRF24L01P_MODE_TX,
+  NRF24L01P_MODE_RX,
+};
+
 enum nrf24l01p_pa_power {
   NRF24L01P_PWR_0DBM,
   NRF24L01P_PWR_N6DBM,
@@ -40,6 +45,7 @@ typedef void (*nrf24l01p_callback_t)(void);
 void nrf24l01p_init(void);
 void nrf24l01p_read_regs(void);
 void nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr);
+void nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode);
 void nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr);
 void nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask);
 void nrf24l01p_set_channel(uint8_t channel_num);
