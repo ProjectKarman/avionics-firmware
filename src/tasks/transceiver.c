@@ -6,12 +6,16 @@
  */ 
 
 #include "asf.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 
-#include "transceiver.h"
 #include "nrf24l01p.h"
+
+#include "packet_history.h"
+
+#include "transceiver.h"
 
 #define PROTOCOL_TIMER TCC1
 #define PROTOCOL_FRAME_RATE 250
@@ -30,9 +34,15 @@ static void protocol_timer_overflow_handler(void);
 QueueHandle_t transceiver_send_queue;
 TaskHandle_t transceiver_task_handle;
 
-static volatile enum transeiver_status status;
+static volatile enum transeiver_state state;
+static packet_history_t packet_history;
 
 void transceiver_start_task(void) {
+  
+  xTaskCreate(transceiver_task_loop, "transceiver", 200, NULL, 2, &transceiver_task_handle);
+
+  packet_history_init(&packet_history);
+
   // Configure timer to generate frame phase interrupts
   tc_enable(&PROTOCOL_TIMER);
   tc_set_wgm(&PROTOCOL_TIMER, TC_WG_NORMAL);
@@ -40,8 +50,6 @@ void transceiver_start_task(void) {
   tc_write_period(&PROTOCOL_TIMER, F_CPU / (4 * PROTOCOL_FRAME_RATE));
   tc_set_overflow_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_overflow_handler);
   tc_set_overflow_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED); 
-
-  xTaskCreate(transceiver_task_loop, "transceiver", 200, NULL, 2, &transceiver_task_handle);
 }
 
 static void transceiver_task_loop(void *p) {
@@ -80,10 +88,10 @@ static void transceiver_task_loop(void *p) {
   */
 
   for(;;) {
-    status = TRANSCEIVER_STATUS_IDLE;
+    state = TRANSCEIVER_STATUS_IDLE;
     vTaskSuspend(NULL); // Suspend until we have to do something...
 
-    switch(status) {
+    switch(state) {
       case TRANSCEIVER_STATUS_TRANSMITTING:
         transmit_operation();
         break;
@@ -104,22 +112,23 @@ static void init_nrf24l01p() {
   nrf24l01p_set_channel(20);
   nrf24l01p_set_data_rate(NRF24L01P_DR_2M);
   nrf24l01p_set_pa_power(NRF24L01P_PWR_N18DBM);
- }
+}
 
 static void transmit_operation(void) {
+  nrf24l01p_set_radio_mode(NRF24L01P_MODE_TX);
 
- }
+}
 
 static void dma_xfer_complete_handler(void) {
   xTaskResumeFromISR(transceiver_task_handle);
- }
+}
 
 static void nrf24l01p_interrupt_handler(void) {
 
- }
+}
 
 static void protocol_timer_overflow_handler(void) {
   // We need to initiate a transmit frame
-  status = TRANSCEIVER_STATUS_TRANSMITTING;
+  state = TRANSCEIVER_STATUS_TRANSMITTING;
   xTaskResumeFromISR(transceiver_task_handle);
- }
+}

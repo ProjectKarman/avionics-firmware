@@ -18,7 +18,7 @@ struct transceiver_message {
   void *data;
 };
 
-enum transeiver_status {
+enum transeiver_state {
   TRANSCEIVER_STATUS_IDLE,
   TRANSCEIVER_STATUS_SLEEP,
   TRANSCEIVER_STATUS_TRANSMITTING,
