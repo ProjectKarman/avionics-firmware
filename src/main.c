@@ -36,8 +36,8 @@ int main(void)
   ioport_set_pin_dir(LEDB, IOPORT_DIR_OUTPUT);
 
 	// start tasks
-	xTaskCreate(blink1, (signed char*) "blink1", 1024, NULL, 2, NULL);
-	xTaskCreate(blink2, (signed char*) "blink2", 1024, NULL, 2, NULL);
+	xTaskCreate(blink1, "blink1", 1024, NULL, 2, NULL);
+	xTaskCreate(blink2, "blink2", 1024, NULL, 2, NULL);
   transceiver_start_task();
 
 	vTaskStartScheduler();

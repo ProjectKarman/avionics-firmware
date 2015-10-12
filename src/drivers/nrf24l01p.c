@@ -37,6 +37,10 @@
 // CONFIG reg bits
 #define CONFIG_PRIM_RX (1 << 0)
 #define CONFIG_PWR_UP (1 << 1)
+#define CONFIG_MASK_MAX_RT (1 << 4)
+#define CONFIG_MASK_TX_DS (1 << 5)
+#define CONFIG_MASK_RX_DR (1 << 6)
+
 
 // RF SETUP reg bits
 #define RF_SETUP_PLL_LOCK (1 << 4)
@@ -61,12 +65,13 @@
 // Function Prototypes
 static void spi_startframe(void);
 static void spi_endframe(void);
-static void dma_channel_callback(enum dma_channel_status status);
+static void dma_channel_handler(enum dma_channel_status status);
 
 // Driver Variables
 static uint8_t local_reg_config;
 static uint8_t local_reg_rf_setup;
-static dma_callback_t dma_callback;
+static nrf24l01p_callback_t dma_callback;
+static nrf24l01p_callback_t interrupt_callback;
 
 void nrf24l01p_init(void) {
   // Init GPIOs
@@ -76,6 +81,10 @@ void nrf24l01p_init(void) {
   ioport_set_pin_dir(SPI_CS_PIN, IOPORT_DIR_OUTPUT);
   ioport_set_pin_dir(CE_PIN, IOPORT_DIR_OUTPUT);
   ioport_set_pin_dir(IRQ_PIN, IOPORT_DIR_INPUT);
+
+  ioport_set_pin_sense_mode(IRQ_PIN, IOPORT_SENSE_FALLING);
+  arch_ioport_pin_to_base(IRQ_PIN)->INT0MASK |= arch_ioport_pin_to_mask(IRQ_PIN);
+  arch_ioport_pin_to_base(IRQ_PIN)->INTCTRL |= PORT_INT0LVL1_bm;
 
   // Init SPI
   struct usart_spi_device spi_conf = {
@@ -132,6 +141,20 @@ void nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr) {
   nrf24l01p_write_register(REG_RF_SETUP, local_reg_rf_setup);
 };
 
+void nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask) {
+  local_reg_config &= ~0x70; // Clear target bits
+  if(mask & NRF24L01P_INTR_RX_DR) {
+    local_reg_config |= CONFIG_MASK_RX_DR;
+  }
+  if(mask & NRF24L01P_INTR_TX_DS) {
+    local_reg_config |= CONFIG_MASK_TX_DS;
+  }
+  if(mask & NRF24L01P_INTR_MAX_RT) {
+    local_reg_config |= CONFIG_MASK_MAX_RT;
+  }
+  nrf24l01p_write_register(REG_CONFIG, local_reg_config);
+}
+
 void nrf24l01p_set_channel(uint8_t channel_num) {
   nrf24l01p_write_register(REG_RF_CH, channel_num);
 };
@@ -169,7 +192,7 @@ void nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
   spi_endframe();
 }
 
-void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, dma_callback_t xfer_complete_callback) {
+void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, nrf24l01p_callback_t xfer_complete_callback) {
   spi_startframe();
 
   struct dma_channel_config dmach_conf;
@@ -185,12 +208,16 @@ void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, dma_callback
   dma_channel_set_trigger_source(&dmach_conf, DMA_CH_TRIGSRC_USARTC0_DRE_gc);
   dma_channel_set_single_shot(&dmach_conf);
   dma_callback = xfer_complete_callback;
-  dma_set_callback(DMA_CHANNEL, dma_channel_callback);
+  dma_set_callback(DMA_CHANNEL, dma_channel_handler);
   dma_channel_set_interrupt_level(&dmach_conf, DMA_INT_LVL_MED);
   dma_channel_write_config(DMA_CHANNEL, &dmach_conf);
 
   usart_spi_write_single(SPI_CNTL, SPICMD_W_TX_PAYLOAD);
   dma_channel_enable(DMA_CHANNEL);
+}
+
+void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback) {
+  interrupt_callback = callback;
 }
 
 void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value) {
@@ -242,7 +269,15 @@ static void spi_endframe() {
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_HIGH);
 }
 
-static void dma_channel_callback(enum dma_channel_status status) {
+static void dma_channel_handler(enum dma_channel_status status) {
   spi_endframe();
-  dma_callback(status);
+  if(dma_callback) {
+    dma_callback();
+  }
 };
+
+ISR(PORTC_INT0_vect) {
+  if(interrupt_callback) {
+    interrupt_callback();
+  }
+}
