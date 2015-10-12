@@ -357,6 +357,9 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\freertos\port\heap_4.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\util\packet_history.c">
       <SubType>compile</SubType>
     </Compile>
@@ -592,9 +595,6 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\freertos\FreeRTOSConfig.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\freertos\port\heap_1.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\freertos\port\port.c">

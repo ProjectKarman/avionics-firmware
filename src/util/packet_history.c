@@ -6,6 +6,7 @@
  */ 
 
 #include <stdint.h>
+#include <string.h>
 #include "packet_history.h"
 
 void packet_history_init(packet_history_t *history) {

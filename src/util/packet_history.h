@@ -9,7 +9,10 @@
 #ifndef PACKET_HISTORY_H_
 #define PACKET_HISTORY_H_
 
-#define PACKET_HISTORY_DEPTH
+#include <stdint.h>
+#include <stddef.h>
+
+#define PACKET_HISTORY_DEPTH 8
 
 struct protocol_packet {
   uint8_t *bytes;
@@ -18,15 +21,16 @@ struct protocol_packet {
 };
 
 struct protocol_raw_frame {
-  protocol_packet *packets;
+  struct protocol_packet *packets;
   size_t len;
 };
 
 typedef struct {
-  protocol_raw_frame history[PACKET_HISTORY_DEPTH];
   uint8_t current_size;
+  struct protocol_raw_frame history[PACKET_HISTORY_DEPTH];
 } packet_history_t;
 
-void packet_history_init(packet_history_t *history)
+void packet_history_init(packet_history_t *history);
+void packet_history_add(packet_history_t *history, struct protocol_raw_frame frame);
 
 #endif /* PACKET_HISTORY_H_ */
