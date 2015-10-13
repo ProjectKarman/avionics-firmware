@@ -1,7 +1,6 @@
 #include "MS5607_02BA.h"
 #include "asf.h"
 
-
 // pins
 #define CSB     IOPORT_CREATE_PIN(PORTC, 4)
 #define MISO     IOPORT_CREATE_PIN(PORTC, 7)
@@ -43,6 +42,10 @@ struct PROM {
 typedef struct PROM PROM;
 
 void ms5607_02ba_read_prom(void);
+uint32_t ms5607_02ba_send_command(uint8_t);
+uint32_t adjust_tempurature(uint32_t);
+uint32_t adjust_pressure(uint32_t);
+
 
 void ms5607_02ba_init() {
   
@@ -55,12 +58,51 @@ void ms5607_02ba_init() {
 
   usart_spi_init(&SPID);
   usart_spi_setup_device(&SPID, &conf, SPI_MODE_0, 1000000, 0);
-  usart_spi_enable(&SPID);
+  // usart_spi_enable(&SPID);
   
+  ms5607_02ba_reset();
   ms5607_02ba_read_prom();
   
   return;
  }
+
+void ms5607_02ba_reset(void) {
+  ms5607_02ba_send_command(RESET);
+  return;
+}
+
+uint32_t ms5607_02ba_get_pressure(uint16_t resolution) {
+  uint32_t raw_pressure = 0x00000;
+  switch(resolution) {
+    case 4096: raw_pressure = ms5607_02ba_send_command(CONVERTD1_4096); break;
+    case 2048: raw_pressure = ms5607_02ba_send_command(CONVERTD1_2048); break;
+    case 1024: raw_pressure = ms5607_02ba_send_command(CONVERTD1_1024); break;
+    case 512: raw_pressure = ms5607_02ba_send_command(CONVERTD1_512); break;
+    case 256: raw_pressure = ms5607_02ba_send_command(CONVERTD1_256); break;
+    default: raw_pressure = ms5607_02ba_send_command(CONVERTD1_4096); break;
+  }
+  return adjust_pressure(raw_pressure);
+}
+
+uint32_t ms5607_02ba_get_tempurature(uint16_t resolution) {
+  uint32_t raw_temp = 0x00000;
+  switch(resolution) {
+    case 4096: raw_temp = ms5607_02ba_send_command(CONVERTD2_4096); break;
+    case 2048: raw_temp = ms5607_02ba_send_command(CONVERTD2_2048); break;
+    case 1024: raw_temp = ms5607_02ba_send_command(CONVERTD2_1024); break;
+    case 512: raw_temp = ms5607_02ba_send_command(CONVERTD2_512); break;
+    case 256: raw_temp = ms5607_02ba_send_command(CONVERTD2_256); break;
+    default: raw_temp = ms5607_02ba_send_command(CONVERTD2_4096); break;
+  }
+  return adjust_tempurature(raw_temp); 
+}
+uint32_t ms5607_02ba_read_adc(void) {
+  uint32_t adc_value = 0x00000;
+  adc_value = ms5607_02ba_send_command(ADC_READ);
+  return adc_value;
+}
+
+// Private/Utility Functions
 
 void ms5607_02ba_read_prom(void) {
   
@@ -101,10 +143,9 @@ void ms5607_02ba_read_prom(void) {
   return;
 }
 
-void ms5607_02ba_send_command(uint8_t comm) {
+uint32_t ms5607_02ba_send_command(uint8_t comm) {
   
-  uint8_t data_buffer[1] = {0xAA};
-    
+  uint8_t data_buffer[4];
   // struct spi_device spi_device_conf = {
   //  .id = IOPORT_CREATE_PIN(PORTD, 0)
   // };
@@ -114,5 +155,15 @@ void ms5607_02ba_send_command(uint8_t comm) {
   usart_spi_read_packet(&SPID, data_buffer, 1);
   usart_spi_deselect_device(&SPID, &conf);
   
-  return;
+  return data_buffer;
+}
+
+uint32_t adjust_pressure(uint32_t raw_pressure) {
+  uint32_t actual = 0x00000;
+  return actual;
+}
+
+uint32_t adjust_tempurature(uint32_t raw_tempurature) {
+  uint32_t actual = 0x00000;
+  return actual;
 }

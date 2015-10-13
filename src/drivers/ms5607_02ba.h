@@ -12,7 +12,11 @@
 #define MS5607_02BA_H_
 
 void ms5607_02ba_init(void);
-void ms5607_02ba_send_command(uint8_t comm);
+void ms5607_02ba_reset(void);
+uint32_t ms5607_02ba_get_pressure(uint16_t);
+uint32_t ms5607_02ba_get_tempurature(uint16_t);
+uint32_t ms5607_02ba_read_adc(void);
+
 
 void ms5607_02ba_wake();
 void ms5607_02ba_flush_tx_fifo(void);
