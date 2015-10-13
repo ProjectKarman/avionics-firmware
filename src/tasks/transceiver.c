@@ -40,6 +40,7 @@ static protocol_packet_t *general_message_to_packet(general_message_t *message);
 static void dma_xfer_complete_handler(void);
 static void nrf24l01p_interrupt_handler(void);
 static void protocol_timer_overflow_handler(void);
+static void protocol_timer_cc_match_handler(void);
 
 TaskHandle_t transceiver_task_handle;
 QueueHandle_t *transceiver_send_queue;
@@ -63,10 +64,13 @@ void transceiver_start_task(void) {
   // Configure timer to generate frame phase interrupts
   tc_enable(&PROTOCOL_TIMER);
   tc_set_wgm(&PROTOCOL_TIMER, TC_WG_NORMAL);
-  tc_write_clock_source(&PROTOCOL_TIMER, TC_CLKSEL_DIV4_gc);
   tc_write_period(&PROTOCOL_TIMER, F_CPU / (4 * PROTOCOL_FRAME_RATE));
+  tc_write_cc(&PROTOCOL_TIMER, TC_CCA, 24000); // TODO: Come up with a general eqn
   tc_set_overflow_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_overflow_handler);
-  tc_set_overflow_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED); 
+  tc_set_overflow_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
+  tc_set_cca_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_cc_match_handler);
+  tc_set_ccb_interrupt_level(&TCC0, TC_INT_LVL_MED);
+  tc_write_clock_source(&PROTOCOL_TIMER, TC_CLKSEL_DIV4_gc);
 }
 
 static void transceiver_task_loop(void *p) {
@@ -136,7 +140,9 @@ static void tx_prep_operation(void) {
         frame->packets[index]->index = index;
         break;
     }
+    index++;
   }
+  packet_history_add(packet_history, frame);
 }
 
 static void transmit_operation(void) {
@@ -163,5 +169,10 @@ static void nrf24l01p_interrupt_handler(void) {
 static void protocol_timer_overflow_handler(void) {
   // We need to initiate a transmit frame
   state = TRANSCEIVER_STATE_TRANSMITTING;
+  xTaskResumeFromISR(transceiver_task_handle);
+}
+
+static void protocol_timer_cc_match_handler(void) {
+  state = TRANSCEIVER_STATE_TX_PREP;
   xTaskResumeFromISR(transceiver_task_handle);
 }
