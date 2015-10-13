@@ -18,14 +18,7 @@ struct transceiver_message {
   void *data;
 };
 
-enum transeiver_state {
-  TRANSCEIVER_STATUS_IDLE,
-  TRANSCEIVER_STATUS_SLEEP,
-  TRANSCEIVER_STATUS_TRANSMITTING,
-  TRANSCEIVER_STATUS_RECEIVING,
-};
-
-extern QueueHandle_t transceiver_send_queue;
+extern QueueHandle_t *transceiver_send_queue;
 extern TaskHandle_t transceiver_task_handle;
 
 void transceiver_start_task(void);

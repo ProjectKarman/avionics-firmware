@@ -13,6 +13,7 @@
 
 #include "nrf24l01p.h"
 
+#include <stdbool.h>
 #include "packet_history.h"
 
 #include "transceiver.h"
@@ -24,24 +25,41 @@
 
 #define MESSAGE_QUEUE_DEPTH PACKET_BYTES
 
+enum transeiver_state {
+  TRANSCEIVER_STATE_IDLE,
+  TRANSCEIVER_STATE_SLEEP,
+  TRANSCEIVER_STATE_TRANSMITTING,
+  TRANSCEIVER_STATE_TX_PREP,
+  TRANSCEIVER_STATE_RECEIVING,
+};
+
 static void transceiver_task_loop(void *p);
 static void init_nrf24l01p(void);
+static void tx_prep_operation(void);
 static void transmit_operation(void);
 static void dma_xfer_complete_handler(void);
 static void nrf24l01p_interrupt_handler(void);
 static void protocol_timer_overflow_handler(void);
 
-QueueHandle_t transceiver_send_queue;
+
 TaskHandle_t transceiver_task_handle;
+QueueHandle_t *transceiver_send_queue;
 
 static volatile enum transeiver_state state;
-static packet_history_t packet_history;
+static packet_history_t *packet_history;
+static QueueHandle_t send_queue_a;
+static QueueHandle_t send_queue_b;
+static bool using_queue_a;
 
 void transceiver_start_task(void) {
-  
   xTaskCreate(transceiver_task_loop, "transceiver", 200, NULL, 2, &transceiver_task_handle);
+  send_queue_a = xQueueCreate(MESSAGE_QUEUE_DEPTH, sizeof(struct transceiver_message *));
+  send_queue_b = xQueueCreate(MESSAGE_QUEUE_DEPTH, sizeof(struct transceiver_message *));
+  transceiver_send_queue = &send_queue_a;
+  using_queue_a = true;
 
-  packet_history_init(&packet_history);
+  packet_history = pvPortMalloc(sizeof(packet_history_t));
+  packet_history_init(packet_history);
 
   // Configure timer to generate frame phase interrupts
   tc_enable(&PROTOCOL_TIMER);
@@ -55,7 +73,7 @@ void transceiver_start_task(void) {
 static void transceiver_task_loop(void *p) {
   init_nrf24l01p();
 
-  transceiver_send_queue = xQueueCreate(MESSAGE_QUEUE_DEPTH, sizeof(struct transceiver_message *));
+  
 
   nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_TX_DS);
   nrf24l01p_set_interrupt_pin_handler(nrf24l01p_interrupt_handler);
@@ -88,14 +106,17 @@ static void transceiver_task_loop(void *p) {
   */
 
   for(;;) {
-    state = TRANSCEIVER_STATUS_IDLE;
+    state = TRANSCEIVER_STATE_IDLE;
     vTaskSuspend(NULL); // Suspend until we have to do something...
 
     switch(state) {
-      case TRANSCEIVER_STATUS_TRANSMITTING:
+      case TRANSCEIVER_STATE_TX_PREP:
+        tx_prep_operation();
+        break;
+      case TRANSCEIVER_STATE_TRANSMITTING:
         transmit_operation();
         break;
-      case TRANSCEIVER_STATUS_RECEIVING:
+      case TRANSCEIVER_STATE_RECEIVING:
         break;
       default:
         break;
@@ -114,6 +135,23 @@ static void init_nrf24l01p() {
   nrf24l01p_set_pa_power(NRF24L01P_PWR_N18DBM);
 }
 
+static void tx_prep_operation(void) {
+  // Swap out the queue that other tasks are writing to
+  transceiver_send_queue = using_queue_a ? &send_queue_b : &send_queue_a;
+  QueueHandle_t *queue_to_prep = !using_queue_a ? &send_queue_b : &send_queue_a;
+  using_queue_a = !using_queue_a;
+  
+  while(uxQueueMessagesWaiting(*queue_to_prep)) {
+    struct transceiver_message message;
+    xQueueReceive(*queue_to_prep, (void *)&message, 0);
+
+    switch(message.type) {
+      case TRANSCEIVER_MSG_TYPE_GENERAL:
+        break;
+    }
+  }
+}
+
 static void transmit_operation(void) {
   nrf24l01p_set_radio_mode(NRF24L01P_MODE_TX);
 
@@ -129,6 +167,6 @@ static void nrf24l01p_interrupt_handler(void) {
 
 static void protocol_timer_overflow_handler(void) {
   // We need to initiate a transmit frame
-  state = TRANSCEIVER_STATUS_TRANSMITTING;
+  state = TRANSCEIVER_STATE_TRANSMITTING;
   xTaskResumeFromISR(transceiver_task_handle);
 }
