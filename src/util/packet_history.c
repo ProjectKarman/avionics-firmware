@@ -23,6 +23,10 @@ void packet_history_add(packet_history_t *history, protocol_raw_frame_t *frame) 
   if(history->current_size == PACKET_HISTORY_DEPTH) {
     protocol_raw_frame_destory(history->history[PACKET_HISTORY_DEPTH - 1]);
   }
+  else {
+    history->current_size++;
+  }
+
 
   uint8_t i;
   for(i = PACKET_HISTORY_DEPTH; i > 0; i--) {
@@ -30,6 +34,7 @@ void packet_history_add(packet_history_t *history, protocol_raw_frame_t *frame) 
     history->history[i] = history->history[i - 1];
   }
   history->history[0] = frame;
+  
 }
 
 static void protocol_raw_frame_destory(protocol_raw_frame_t *frame) {

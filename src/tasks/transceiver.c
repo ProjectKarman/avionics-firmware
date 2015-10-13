@@ -66,10 +66,11 @@ void transceiver_start_task(void) {
   tc_set_wgm(&PROTOCOL_TIMER, TC_WG_NORMAL);
   tc_write_period(&PROTOCOL_TIMER, F_CPU / (4 * PROTOCOL_FRAME_RATE));
   tc_write_cc(&PROTOCOL_TIMER, TC_CCA, 24000); // TODO: Come up with a general eqn
+  tc_enable_cc_channels(&PROTOCOL_TIMER, TC_CCAEN);
   tc_set_overflow_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_overflow_handler);
   tc_set_overflow_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
   tc_set_cca_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_cc_match_handler);
-  tc_set_ccb_interrupt_level(&TCC0, TC_INT_LVL_MED);
+  tc_set_cca_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
   tc_write_clock_source(&PROTOCOL_TIMER, TC_CLKSEL_DIV4_gc);
 }
 
