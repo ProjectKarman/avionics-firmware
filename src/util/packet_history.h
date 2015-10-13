@@ -14,23 +14,23 @@
 
 #define PACKET_HISTORY_DEPTH 8
 
-struct protocol_packet {
+typedef struct {
   uint8_t *bytes;
   size_t len;
   uint8_t index;
-};
+} protocol_packet_t;
 
-struct protocol_raw_frame {
-  struct protocol_packet *packets;
+typedef struct {
+  protocol_packet_t **packets;
   size_t len;
-};
+} protocol_raw_frame_t;
 
 typedef struct {
   uint8_t current_size;
-  struct protocol_raw_frame *history[PACKET_HISTORY_DEPTH];
+  protocol_raw_frame_t *history[PACKET_HISTORY_DEPTH];
 } packet_history_t;
 
 void packet_history_init(packet_history_t *history);
-void packet_history_add(packet_history_t *history, struct protocol_raw_frame *frame);
+void packet_history_add(packet_history_t *history, protocol_raw_frame_t *frame);
 
 #endif /* PACKET_HISTORY_H_ */

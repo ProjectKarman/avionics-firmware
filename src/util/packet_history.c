@@ -13,13 +13,13 @@
 
 #include "packet_history.h"
 
-static void protocol_raw_frame_destory(struct protocol_raw_frame *frame);
+static void protocol_raw_frame_destory(protocol_raw_frame_t *frame);
 
 void packet_history_init(packet_history_t *history) {
   memset(history, 0, sizeof(packet_history_t));
 }
 
-void packet_history_add(packet_history_t *history, struct protocol_raw_frame *frame) {
+void packet_history_add(packet_history_t *history, protocol_raw_frame_t *frame) {
   if(history->current_size == PACKET_HISTORY_DEPTH) {
     protocol_raw_frame_destory(history->history[PACKET_HISTORY_DEPTH - 1]);
   }
@@ -32,7 +32,11 @@ void packet_history_add(packet_history_t *history, struct protocol_raw_frame *fr
   history->history[0] = frame;
 }
 
-static void protocol_raw_frame_destory(struct protocol_raw_frame *frame) {
+static void protocol_raw_frame_destory(protocol_raw_frame_t *frame) {
+  uint8_t i;
+  for(i = 0; i < frame->len; i++) {
+    vPortFree(frame->packets[i]->bytes);
+  }
   vPortFree(frame->packets);
   vPortFree(frame);
 }
