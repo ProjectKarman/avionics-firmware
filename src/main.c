@@ -4,12 +4,13 @@
 
 #include "user_board.h"
 #include "asf.h"
+#include <inttypes.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 
-#include "ms5607_02ba.h"
+#include "fxls8471qr1.h"
 
 void blink1(void *p) {	
 	while (1) {
@@ -30,7 +31,10 @@ int main(void)
 	PORTA.DIR |= 0x03;
 
 	board_init();
-	ms5607_02ba_init();
+	fxls8471qr1_init();
+	
+	uint8_t reg_value;
+	fxls8471qr1_read_register(0x0D, &reg_value);
   
   
 	// start tasks
