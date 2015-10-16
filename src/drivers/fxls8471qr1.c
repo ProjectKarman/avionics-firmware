@@ -13,10 +13,10 @@
 
 
 // IO Definitions
-#define SPI_CS_PIN		IOPORT_CREATE_PIN(PORTD, 1)
-#define SPI_MISO_PIN	IOPORT_CREATE_PIN(PORTD, 2)
-#define SPI_MOSI_PIN	IOPORT_CREATE_PIN(PORTD, 3)
-#define SPI_SCLK_PIN	IOPORT_CREATE_PIN(PORTD, 4)
+#define SPI_CS_PIN		IOPORT_CREATE_PIN(PORTC, 4)
+#define SPI_MISO_PIN	IOPORT_CREATE_PIN(PORTC, 6)
+#define SPI_MOSI_PIN	IOPORT_CREATE_PIN(PORTC, 7)
+#define SPI_SCLK_PIN	IOPORT_CREATE_PIN(PORTC, 5)
 
 // registers
 #define	REG_STATUS				0x00
@@ -42,7 +42,7 @@
 
 
 // peripheral definitions
-#define SPI_CTRL_USART USARTC0
+#define SPI_CTRL_USART USARTC1
 #define SPI_CTRL (&SPI_CTRL_USART)
 
 // function prototypes
