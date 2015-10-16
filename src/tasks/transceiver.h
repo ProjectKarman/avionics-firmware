@@ -13,14 +13,14 @@ enum transceiver_message_type {
   TRANSCEIVER_MSG_TYPE_GENERAL
 };
 
-struct transceiver_message {
+typedef struct {
   enum transceiver_message_type type;
   void *data;
-};
+} transceiver_message_t;
 
-extern QueueHandle_t *transceiver_send_queue;
 extern TaskHandle_t transceiver_task_handle;
 
 void transceiver_start_task(void);
+void transceiver_send_message(transceiver_message_t *message, TickType_t ticks_to_wait);
 
 #endif /* TRANSCEIVER_H_ */

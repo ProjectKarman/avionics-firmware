@@ -8,7 +8,6 @@
 #include "asf.h"
 #include "usart_spi.h"
 #include "nrf24l01p.h"
-#include "usart_spi.h"
 #include <util/delay.h>
 #include <string.h>
 
@@ -284,6 +283,10 @@ static void spi_endframe() {
 
 static void dma_channel_handler(enum dma_channel_status status) {
   spi_endframe();
+  // Get data out of the FIFO
+  SPI_CNTL_USART.CTRLB &= ~USART_RXEN_bm;
+  SPI_CNTL_USART.CTRLB |= USART_RXEN_bm;
+
   if(dma_callback) {
     dma_callback();
   }
