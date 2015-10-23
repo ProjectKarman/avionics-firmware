@@ -60,6 +60,8 @@ void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback);
 void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value);
 void nrf24l01p_write_register(uint8_t address, uint8_t new_value);
 void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, size_t value_len);
+void nrf24l01p_start_operation(void);
+void nrf24l01p_end_operation(void);
 void nrf24l01p_data_test(void); // REMOVE!
 
 #endif /* NRF24L01P_H_ */

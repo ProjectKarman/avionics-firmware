@@ -253,6 +253,14 @@ void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, size_
   spi_endframe();
 }
 
+void nrf24l01p_start_operation(void) {
+  ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_HIGH);
+}
+
+void nrf24l01p_end_operation(void) {
+  ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_LOW);
+}
+
 void nrf24l01p_data_test(void) {
   nrf24l01p_write_register(REG_EN_AA, 0x0);
   nrf24l01p_write_register(REG_SETUP_RETR, 0x0);

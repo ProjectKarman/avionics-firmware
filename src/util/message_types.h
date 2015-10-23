@@ -17,6 +17,7 @@ typedef struct {
   size_t len;
 } general_message_t;
 
-
+general_message_t *general_message_create(void);
+void general_message_destory(general_message_t *message);
 
 #endif /* MESSAGE_TYPES_H_ */
