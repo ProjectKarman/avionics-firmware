@@ -50,6 +50,31 @@
 #define F_SETUP_FIFO_STOP_ACCEPTING 0x80
 #define F_SETUP_FIFO_TRIGGER 0xC0
 
+// DR setup reg bits
+#define DR_800_HZ 0x00
+#define DR_400_HZ 0x08
+#define DR_200_HZ 0x10
+#define DR_100_HZ 0x18
+#define DR_50_HZ 0x20
+#define DR_12_5_HZ 0x28
+#define DR_6_25_HZ 0x30
+#define DR_1_5625_HZ 0x38
+
+//fs range bits
+#define FS_RANGE_244 0x00
+#define FS_RANGE_488 0x01
+#define FS_RANGE_976 0x02
+
+//Each bit is on
+#define EIGHTH_BIT_ON 0x80
+#define SEVENTH_BIT_ON 0x40
+#define SIXTH_BIT_ON 0x20
+#define FIFTH_BIT_ON 0x10
+#define FOURTH_BIT_ON 0x08
+#define THIRD_BIT_ON 0x04
+#define SECOND_BIT_ON 0x02
+#define FIRST_BIT_ON 0x01
+
 
 // peripheral definitions
 #define SPI_CTRL_USART USARTC1
@@ -149,12 +174,13 @@ void fxls8471qr1_setup_xyz_fs_range(enum fxls8471qr1_fs_range fs_range){
 	local_xyz_data_config &= 0x10;
 	switch(fs_range){
 		case FXLS8471QR1_FS_RANGE_244:
+			local_xyz_data_config |= FS_RANGE_244;
 			break;
 		case FXLS8471QR1_FS_RANGE_488:
-			local_xyz_data_config |= 0x01;
+			local_xyz_data_config |= FS_RANGE_488;
 			break;
 		case FXLS8471QR1_FS_RANGE_976:
-			local_xyz_data_config |= 0x02;
+			local_xyz_data_config |= FS_RANGE_976;
 			break;
 	}
 	fxls8471qr1_write_register(REG_XYZ_DATA_CFG, local_xyz_data_config);
@@ -163,7 +189,7 @@ void fxls8471qr1_setup_xyz_fs_range(enum fxls8471qr1_fs_range fs_range){
 void fxls8471qr1_setup_xyz_hp(bool hp_on){
 	local_xyz_data_config &= 0x0F;
 	if(hp_on)
-		local_xyz_data_config |= 0x10;
+		local_xyz_data_config |= FIFTH_BIT_ON;
 	fxls8471qr1_write_register(REG_XYZ_DATA_CFG, local_xyz_data_config);
 }
 
@@ -171,26 +197,28 @@ void fxls8471qr1_setup_ctrl_reg1_dr(enum fxls8471qr1_ctrl_reg1_dr data_rate){
 	local_ctrl_reg1_config &= 0xC7;
 	switch(data_rate){
 		case FXLS8471QR1_DR_800_HZ:
+			local_ctrl_reg1_config |= DR_800_HZ;
 			break;
 		case FXLS8471QR1_DR_400_HZ:
-			local_ctrl_reg1_config |= 0x08;
+			local_ctrl_reg1_config |= DR_400_HZ;
 			break;
 		case FXLS8471QR1_DR_200_HZ:
-			local_ctrl_reg1_config |= 0x10;
+			local_ctrl_reg1_config |= DR_200_HZ;
 			break;
 		case FXLS8471QR1_DR_100_HZ:
-			local_ctrl_reg1_config |= 0x18;
+			local_ctrl_reg1_config |= DR_100_HZ;
 			break;
 		case FXLS8471QR1_DR_50_HZ:
-			local_ctrl_reg1_config |= 0x20;
+			local_ctrl_reg1_config |= DR_50_HZ;
 			break;
 		case FXLS8471QR1_DR_12_5_HZ:
-			local_ctrl_reg1_config |= 0x28;
+			local_ctrl_reg1_config |= DR_12_5_HZ;
+			break;
 		case FXLS8471QR1_DR_6_25_HZ:
-			local_ctrl_reg1_config |= 0x30;
+			local_ctrl_reg1_config |= DR_6_25_HZ;
 			break;
 		case FXLS8471QR1_DR_1_5625_HZ:
-			local_ctrl_reg1_config |= 0x38;
+			local_ctrl_reg1_config |= DR_1_5625_HZ;
 			break;
 	}
 	fxls8471qr1_write_register(REG_CTRL_REG1, local_ctrl_reg1_config);
@@ -199,44 +227,45 @@ void fxls8471qr1_setup_ctrl_reg1_dr(enum fxls8471qr1_ctrl_reg1_dr data_rate){
 void fxls8471qr1_setup_ctrl_reg4_interrupt_enable(enum fxls8471qr1_ctrl_reg4_interrupt interrupt, bool enable){
 	switch(interrupt){
 		case FXLS8471QR1_INTERRUPT_ASLP:
-			local_ctrl_reg4_config &= 0x7F;
+			local_ctrl_reg4_config &= ~EIGHTH_BIT_ON;
 			if (enable)
-				local_ctrl_reg4_config |= ~0x7F;
+				local_ctrl_reg4_config |= EIGHTH_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_FIFO:
-			local_ctrl_reg4_config &= 0xBF;
+			local_ctrl_reg4_config &= ~SEVENTH_BIT_ON;
 			if (enable)
-				local_ctrl_reg4_config |= ~0xBF;
+				local_ctrl_reg4_config |= SEVENTH_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_TRANS:
-			local_ctrl_reg4_config &= 0xDF;
+			local_ctrl_reg4_config &= ~SIXTH_BIT_ON;
 			if (enable)
-				local_ctrl_reg4_config |= ~0xDF;
+				local_ctrl_reg4_config |= SIXTH_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_LNDPRT:
-			local_ctrl_reg4_config &= 0xEF;
+			local_ctrl_reg4_config &= ~FIFTH_BIT_ON;
 			if (enable)
-				local_ctrl_reg4_config |= ~0xEF;
+				local_ctrl_reg4_config |= FIFTH_BIT_ON;
+;
 			break;
 		case FXLS8471QR1_INTERRUPT_PULSE:
-			local_ctrl_reg4_config &= 0xF7;
+			local_ctrl_reg4_config &= ~FOURTH_BIT_ON;
 			if (enable)
-				local_ctrl_reg4_config |= ~0xF7;
+				local_ctrl_reg4_config |= FOURTH_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_FFMT:
-			local_ctrl_reg4_config &= 0xFB;
+			local_ctrl_reg4_config &= ~THIRD_BIT_ON;
 			if (enable)
-				local_ctrl_reg4_config |= ~0xFB;
+				local_ctrl_reg4_config |= THIRD_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_A_VECM:
-			local_ctrl_reg4_config &= 0xFD;
+			local_ctrl_reg4_config &= ~SECOND_BIT_ON;
 			if (enable)
-				local_ctrl_reg4_config |= ~0xFD;
+				local_ctrl_reg4_config |= SECOND_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_DRDY:
-			local_ctrl_reg4_config &= 0xFE;
+			local_ctrl_reg4_config &= ~FIRST_BIT_ON;
 			if (enable)
-				local_ctrl_reg4_config |= ~0xFE;
+				local_ctrl_reg4_config |= ~FIRST_BIT_ON;
 			break;
 	};
 	fxls8471qr1_write_register(REG_CTRL_REG4, local_ctrl_reg4_config);
@@ -247,44 +276,44 @@ void fxls8471qr1_setup_ctrl_reg4_interrupt_enable(enum fxls8471qr1_ctrl_reg4_int
 void fxls8471qr1_setup_ctrl_reg5_interrupt_route_toggle(enum fxls8471qr1_ctrl_reg5_interrupt_route route, bool pin){
 	switch(route){
 		case FXLS8471QR1_INTERRUPT_RT_ASLP:
-			local_ctrl_reg5_config &= 0x7F;
+			local_ctrl_reg5_config &= ~EIGHTH_BIT_ON;
 			if (pin)
-				local_ctrl_reg5_config |= ~0x7F;
+				local_ctrl_reg5_config |= EIGHTH_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_RT_FIFO:
-			local_ctrl_reg5_config &= 0xBF;
+			local_ctrl_reg5_config &= ~SEVENTH_BIT_ON;
 			if (pin)
-				local_ctrl_reg5_config |= ~0xBF;
+				local_ctrl_reg5_config |= SEVENTH_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_RT_TRANS:
-			local_ctrl_reg5_config &= 0xDF;
+			local_ctrl_reg5_config &= ~SIXTH_BIT_ON;
 			if (pin)
-				local_ctrl_reg5_config |= ~0xDF;
+				local_ctrl_reg5_config |= SIXTH_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_RT_LNDPRT:
-			local_ctrl_reg5_config &= 0xEF;
+			local_ctrl_reg5_config &= ~FIFTH_BIT_ON;
 			if (pin)
-				local_ctrl_reg5_config |= ~0xEF;
+				local_ctrl_reg5_config |= FIFTH_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_RT_PULSE:
-			local_ctrl_reg5_config &= 0xF7;
+			local_ctrl_reg5_config &= ~FOURTH_BIT_ON;
 			if (pin)
-				local_ctrl_reg5_config |= ~0xF7;
+				local_ctrl_reg5_config |= FOURTH_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_RT_FFMT:
-			local_ctrl_reg5_config &= 0xFB;
+			local_ctrl_reg5_config &= ~THIRD_BIT_ON;
 			if (pin)
-				local_ctrl_reg5_config |= ~0xFB;
+				local_ctrl_reg5_config |= THIRD_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_RT_A_VECM:
-			local_ctrl_reg5_config &= 0xFD;
+			local_ctrl_reg5_config &= ~SECOND_BIT_ON;
 			if (pin)
-				local_ctrl_reg5_config |= ~0xFD;
+				local_ctrl_reg5_config |= SECOND_BIT_ON;
 			break;
 		case FXLS8471QR1_INTERRUPT_RT_DRDY:
-			local_ctrl_reg5_config &= 0xFE;
+			local_ctrl_reg5_config &= ~FIRST_BIT_ON;
 			if (pin)
-				local_ctrl_reg5_config |= ~0xFE;
+				local_ctrl_reg5_config |= FIRST_BIT_ON;
 			break;
 	};
 	fxls8471qr1_write_register(REG_CTRL_REG5, local_ctrl_reg5_config);
