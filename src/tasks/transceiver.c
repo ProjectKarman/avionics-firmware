@@ -44,6 +44,7 @@ typedef struct {
 
 static void transceiver_task_loop(void *p);
 static void init_nrf24l01p(void);
+static void add_priority_event(enum transceiver_event_type event_type, void *data);
 static void prepare_transmit_frame(void);
 static void add_message_to_frame(transceiver_message_t *new_message);
 static downlink_packet_t *general_message_to_packet(general_message_t *message);
@@ -117,6 +118,7 @@ static void transceiver_task_loop(void *p) {
         add_message_to_frame((transceiver_message_t *)currentEvent.data);
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_COMPLETE:
+        downlink_frame_destory(frame_to_send);
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_PREPARE:
         prepare_transmit_frame();
@@ -135,6 +137,14 @@ static void init_nrf24l01p(void) {
   nrf24l01p_set_data_rate(NRF24L01P_DR_2M);
   nrf24l01p_set_pa_power(NRF24L01P_PWR_N18DBM);
 }
+
+static inline void add_priority_event(enum transceiver_event_type event_type, void *data) {
+  transceiver_event_t event = {
+    .data = data,
+    .type = event_type
+  };
+  xQueueSendToFrontFromISR(event_queue, &event, NULL);
+};
 
 static void prepare_transmit_frame(void) {
   state = TRANSCEIVER_STATE_PREPARING;
@@ -209,7 +219,7 @@ static void nrf24l01p_interrupt_handler(void) {
       else {
         state = TRANSCEIVER_STATE_IDLE;
         nrf24l01p_end_operation();
-        // TODO: Call event to transition to rx mode
+        add_priority_event(TRANSCEIVER_EVENT_TX_FRAME_COMPLETE, NULL);
       }
       break;
     case TRANSCEIVER_STATE_RECEIVING:
@@ -229,9 +239,5 @@ static void protocol_timer_overflow_handler(void) {
 
 static void protocol_timer_cc_match_handler(void) {
   // We need to set everything up to be able to transmit
-  transceiver_event_t event = {
-    .data = NULL,
-    .type = TRANSCEIVER_EVENT_TX_FRAME_PREPARE
-  };
-  xQueueSendToFrontFromISR(event_queue, &event, NULL);
+  add_priority_event(TRANSCEIVER_EVENT_TX_FRAME_PREPARE, NULL);
 }

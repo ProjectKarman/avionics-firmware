@@ -18,6 +18,7 @@ downlink_packet_t *downlink_packet_create(void)
 }
 
 void downlink_packet_destroy(downlink_packet_t *packet) {
+  vPortFree(packet->bytes);
   vPortFree(packet);
 }
 
@@ -29,7 +30,17 @@ downlink_frame_t *downlink_frame_create(void)
 }
 
 void downlink_frame_destory(downlink_frame_t *frame) {
-  
+  // We need to traverse the frame and destroy each packet
+
+  downlink_packet_t *current_packet = frame->header_packet;
+  downlink_packet_t *next_packet;
+
+  while(current_packet != NULL) {
+    next_packet = current_packet->next_packet;
+    downlink_packet_destroy(current_packet);
+    current_packet = next_packet;
+  }
+
   vPortFree(frame);
 }
 
@@ -97,9 +108,9 @@ void downlink_frame_prepare_for_sending(downlink_frame_t *frame) {
 }
 
 downlink_packet_t *downlink_frame_get_packet(downlink_frame_t *frame) {
-  downlink_frame_t *packet = frame->packet_prt;
+  downlink_packet_t *packet = frame->packet_prt;
   if(packet != NULL) {
-    frame->packet_prt = frame->packet_prt->bytes;
+    frame->packet_prt = frame->packet_prt->next_packet;
     return packet;
   }
   else {
