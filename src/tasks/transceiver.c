@@ -59,7 +59,7 @@ TaskHandle_t transceiver_task_handle;
 
 static QueueHandle_t event_queue;
 static volatile enum transeiver_state state;
-static uint8_t fifo_fill_depth;
+static volatile uint8_t fifo_fill_depth;
 static downlink_frame_t *currently_building_frame;
 static downlink_frame_t *frame_to_send;
 
@@ -119,6 +119,7 @@ static void transceiver_task_loop(void *p) {
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_COMPLETE:
         downlink_frame_destory(frame_to_send);
+        state = TRANSCEIVER_STATE_IDLE;
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_PREPARE:
         prepare_transmit_frame();
@@ -187,7 +188,6 @@ static downlink_packet_t *general_message_to_packet(general_message_t *message) 
 }
 
 static void dma_xfer_complete_handler(void) {
-  xTaskResumeFromISR(transceiver_task_handle);
   switch(state) {
     case TRANSCEIVER_STATE_PREPARING:
     case TRANSCEIVER_STATE_TRANSMITTING:
@@ -216,7 +216,8 @@ static void nrf24l01p_interrupt_handler(void) {
       if(packet != NULL) {
         nrf24l01p_init_tx_payload_xfer(packet->bytes, packet->len, dma_xfer_complete_handler);
       }
-      else {
+      else if(fifo_fill_depth == 0) {
+        // No more packets to transmit
         state = TRANSCEIVER_STATE_IDLE;
         nrf24l01p_end_operation();
         add_priority_event(TRANSCEIVER_EVENT_TX_FRAME_COMPLETE, NULL);

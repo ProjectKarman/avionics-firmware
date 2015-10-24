@@ -61,6 +61,10 @@ void downlink_frame_copy_retransmissions(downlink_frame_t *frame, downlink_packe
 void downlink_frame_prepare_for_sending(downlink_frame_t *frame) {
   // Generate Header
   downlink_packet_t *header_packet = downlink_packet_create();
+  if(header_packet == NULL) {
+    // No memory yo
+    return;
+  }
   header_packet->len = 1;
   header_packet->bytes = pvPortMalloc(sizeof(uint8_t));
   frame->header_packet = header_packet;

@@ -22,7 +22,6 @@ typedef struct {
   downlink_packet_t *retransmit_section;
   downlink_packet_t *data_section;
   downlink_packet_t *data_section_tail;
-  downlink_packet_t *tail_packet;
   downlink_packet_t *packet_prt;
 } downlink_frame_t;
 
