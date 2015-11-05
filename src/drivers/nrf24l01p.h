@@ -48,6 +48,7 @@ void nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr);
 void nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode);
 void nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr);
 void nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask);
+void nrf24l01p_reset_interrupts(void);
 void nrf24l01p_set_channel(uint8_t channel_num);
 void nrf24l01p_open(void);
 void nrf24l01p_wake(void);
@@ -59,7 +60,7 @@ void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, nrf24l01p_ca
 void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback);
 void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value);
 void nrf24l01p_write_register(uint8_t address, uint8_t new_value);
-void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, size_t value_len);
+void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, uint8_t value_len);
 void nrf24l01p_start_operation(void);
 void nrf24l01p_end_operation(void);
 void nrf24l01p_data_test(void); // REMOVE!

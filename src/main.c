@@ -62,7 +62,7 @@ void gen_test_packets(void *p) {
     transceiver_send_message(message2, 0);
     transceiver_send_message(message3, 0);
     
-    vTaskDelay(3);
+    vTaskDelay(5);
   }
 }
 

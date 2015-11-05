@@ -104,7 +104,7 @@ void transceiver_message_destroy(transceiver_message_t *message) {
 static void transceiver_task_loop(void *p) {
   init_nrf24l01p(); 
 
-  nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_TX_DS);
+  //nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_TX_DS);
   nrf24l01p_set_interrupt_pin_handler(nrf24l01p_interrupt_handler);
 
   currently_building_frame = downlink_frame_create();
@@ -134,6 +134,7 @@ static void init_nrf24l01p(void) {
   vTaskDelay(2);
   nrf24l01p_flush_rx_fifo();
   nrf24l01p_flush_tx_fifo();
+  nrf24l01p_reset_interrupts();
   nrf24l01p_set_channel(20);
   nrf24l01p_set_data_rate(NRF24L01P_DR_2M);
   nrf24l01p_set_pa_power(NRF24L01P_PWR_N18DBM);
@@ -208,6 +209,7 @@ static void dma_xfer_complete_handler(void) {
 }
 
 static void nrf24l01p_interrupt_handler(void) {
+  nrf24l01p_reset_interrupts(); // TODO: Not ideal at all...
   switch(state) {
     case TRANSCEIVER_STATE_TRANSMITTING:
       // Packet transmitted

@@ -30,6 +30,7 @@
 #define REG_SETUP_RETR 0x04
 #define REG_RF_CH 0x05
 #define REG_RF_SETUP 0x06
+#define REG_STATUS 0x07
 #define REG_TX_ADDR 0x10
 #define REG_FIFO_STATUS 0x17
 
@@ -40,6 +41,10 @@
 #define CONFIG_MASK_TX_DS (1 << 5)
 #define CONFIG_MASK_RX_DR (1 << 6)
 
+// STATUS reg bits
+#define STATUS_MAX_RT (1 << 4)
+#define STATUS_TX_DS (1 << 5)
+#define STATUS_RX_DR (1 << 6)
 
 // RF SETUP reg bits
 #define RF_SETUP_PLL_LOCK (1 << 4)
@@ -71,6 +76,11 @@ static uint8_t local_reg_config;
 static uint8_t local_reg_rf_setup;
 static nrf24l01p_callback_t dma_callback;
 static nrf24l01p_callback_t interrupt_callback;
+static nrf24l01p_callback_t current_command_callback;
+static bool is_command_running;
+static uint8_t *bytes_to_send;
+static uint8_t bytes_len;
+static uint8_t current_byte_index;
 
 void nrf24l01p_init(void) {
   // Init GPIOs
@@ -92,6 +102,7 @@ void nrf24l01p_init(void) {
   usart_spi_init(SPI_CNTL);
   usart_spi_setup_device(SPI_CNTL, &spi_conf, SPI_MODE_0, 8000000, 0);
   spi_endframe();
+  is_command_running = false;
 }
 
 void nrf24l01p_read_regs(void) {
@@ -165,6 +176,10 @@ void nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask) {
     local_reg_config |= CONFIG_MASK_MAX_RT;
   }
   nrf24l01p_write_register(REG_CONFIG, local_reg_config);
+}
+
+void nrf24l01p_reset_interrupts(void) {
+  nrf24l01p_write_register(REG_STATUS, STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS);
 }
 
 void nrf24l01p_set_channel(uint8_t channel_num) {
@@ -246,18 +261,37 @@ void nrf24l01p_write_register(uint8_t address, uint8_t new_value) {
   spi_endframe();
 }
 
-void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, size_t value_len) {
+void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, uint8_t value_len) {
   spi_startframe();
   usart_spi_write_single(SPI_CNTL, SPICMD_W_REGISTER(address));
   usart_spi_write_packet(SPI_CNTL, new_value, value_len);
   spi_endframe();
 }
 
-void nrf24l01p_start_operation(void) {
+uint8_t nrf24l01p_write_register_async(uint8_t address, const uint8_t *new_value, uint8_t value_len, nrf24l01p_callback_t callback) {
+  if(is_command_running) {
+    return 1;
+  }
+
+  is_command_running = true;
+  bytes_to_send = new_value;
+  bytes_len = value_len;
+  current_byte_index = 0;
+  current_command_callback = callback;
+
+  usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED);
+
+  spi_startframe();
+  usart_put(SPI_CNTL, SPICMD_W_REGISTER(address));
+
+  return 0;
+}
+
+void inline nrf24l01p_start_operation(void) {
   ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_HIGH);
 }
 
-void nrf24l01p_end_operation(void) {
+void inline nrf24l01p_end_operation(void) {
   ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_LOW);
 }
 
@@ -291,7 +325,7 @@ static void spi_endframe() {
 
 static void dma_channel_handler(enum dma_channel_status status) {
   spi_endframe();
-  // Get data out of the FIFO
+  // Clear USART FIFO
   SPI_CNTL_USART.CTRLB &= ~USART_RXEN_bm;
   SPI_CNTL_USART.CTRLB |= USART_RXEN_bm;
 
@@ -303,5 +337,18 @@ static void dma_channel_handler(enum dma_channel_status status) {
 ISR(PORTC_INT0_vect) {
   if(interrupt_callback) {
     interrupt_callback();
+  }
+}
+
+ISR(USARTC0_TXC_vect) {
+  if(current_byte_index < bytes_len) {
+    usart_put(SPI_CNTL, bytes_to_send[current_byte_index++]);
+  }
+  else {
+    // Transfer complete
+    spi_endframe();
+    if(current_command_callback) {
+      current_command_callback();
+    }
   }
 }
