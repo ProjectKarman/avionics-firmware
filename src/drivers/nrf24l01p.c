@@ -76,11 +76,13 @@ static uint8_t local_reg_config;
 static uint8_t local_reg_rf_setup;
 static nrf24l01p_callback_t dma_callback;
 static nrf24l01p_callback_t interrupt_callback;
-static nrf24l01p_callback_t current_command_callback;
-static bool is_command_running;
+static nrf24l01p_callback_t current_function_callback;
 static uint8_t *bytes_to_send;
 static uint8_t bytes_len;
 static uint8_t current_byte_index;
+static SemaphoreHandle_t command_semaphore;
+static SemaphoreHandle_t function_mutex;
+static bool is_command_async;
 
 void nrf24l01p_init(void) {
   // Init GPIOs
@@ -102,7 +104,10 @@ void nrf24l01p_init(void) {
   usart_spi_init(SPI_CNTL);
   usart_spi_setup_device(SPI_CNTL, &spi_conf, SPI_MODE_0, 8000000, 0);
   spi_endframe();
-  is_command_running = false;
+
+  // OS Level Structures
+  function_mutex = xSemaphoreCreateMutex();
+  command_semaphore = xSemaphoreCreateBinary();
 }
 
 void nrf24l01p_read_regs(void) {
@@ -254,11 +259,21 @@ void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value) {
   spi_endframe();
 }
 
-void nrf24l01p_write_register(uint8_t address, uint8_t new_value) {
-  spi_startframe();
-  usart_spi_write_single(SPI_CNTL, SPICMD_W_REGISTER(address));
-  usart_spi_write_single(SPI_CNTL, new_value);
-  spi_endframe();
+uint8_t nrf24l01p_write_register(uint8_t address, uint8_t *new_value, uint8_t value_len, TickType_t block_time) {
+  if(xSemaphoreTake(function_mutex, block_time) == pdTRUE) {
+    spi_startframe();
+    usart_put(SPI_CNTL, SPICMD_W_REGISTER(address)); // Write out the address
+    is_command_async = false;
+    usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
+    xSemaphoreTake(command_semaphore, portMAX_DELAY); // Wait for command to complete
+    xSemaphoreGive(function_mutex);
+    usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
+    // SPI Frame is ended in the USART ISR
+    return 0;
+  }
+  else {
+    return 1;
+  }
 }
 
 void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, uint8_t value_len) {
@@ -269,20 +284,6 @@ void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, uint8
 }
 
 uint8_t nrf24l01p_write_register_async(uint8_t address, const uint8_t *new_value, uint8_t value_len, nrf24l01p_callback_t callback) {
-  if(is_command_running) {
-    return 1;
-  }
-
-  is_command_running = true;
-  bytes_to_send = new_value;
-  bytes_len = value_len;
-  current_byte_index = 0;
-  current_command_callback = callback;
-
-  usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED);
-
-  spi_startframe();
-  usart_put(SPI_CNTL, SPICMD_W_REGISTER(address));
 
   return 0;
 }
@@ -347,8 +348,13 @@ ISR(USARTC0_TXC_vect) {
   else {
     // Transfer complete
     spi_endframe();
-    if(current_command_callback) {
-      current_command_callback();
+    if(is_command_async) {
+      if(current_function_callback) {
+        current_function_callback();
+      }
+    }
+    else {
+      xSemaphoreGiveFromISR(command_semaphore, NULL);
     }
   }
 }

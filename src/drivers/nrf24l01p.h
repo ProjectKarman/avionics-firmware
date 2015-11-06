@@ -59,7 +59,7 @@ void nrf24l01p_send_payload(uint8_t *data, size_t data_len);
 void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, nrf24l01p_callback_t xfer_complete_callback);
 void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback);
 void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value);
-void nrf24l01p_write_register(uint8_t address, uint8_t new_value);
+uint8_t nrf24l01p_write_register(uint8_t address, uint8_t *new_value, uint8_t value_len, TickType_t block_time);
 void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, uint8_t value_len);
 void nrf24l01p_start_operation(void);
 void nrf24l01p_end_operation(void);
