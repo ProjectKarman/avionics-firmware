@@ -274,14 +274,22 @@ uint8_t inline nrf24l01p_write_register_single_async(uint8_t address, uint8_t ne
   return nrf24l01p_write_register_async(address, &new_value, 1, callback);
 }
 
-uint8_t nrf24l01p_write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len) {
+uint8_t inline nrf24l01p_write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len) {
+  return nrf24l01p_send_command(SPICMD_W_REGISTER(address), new_value, value_len);
+}
+
+uint8_t nrf24l01p_write_register_async(uint8_t address, uint8_t const *new_value, uint8_t value_len, nrf24l01p_callback_t callback) {
+  return nrf24l01p_send_command_async(SPICMD_W_REGISTER(address), new_value, value_len, callback);
+}
+
+uint8_t nrf24l01p_send_command(uint8_t command, uint8_t const *data, uint8_t data_len) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     spi_startframe();
-    usart_put(SPI_CNTL, SPICMD_W_REGISTER(address)); // Write out the address
+    usart_put(SPI_CNTL, command); // Write out command
     is_command_async = false;
     current_byte_index = 0;
-    bytes_len = value_len;
-    bytes_to_send = (uint8_t *)new_value;
+    bytes_len = data_len;
+    bytes_to_send = (uint8_t *)data;
     usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
     xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
     xSemaphoreGive(command_running_semaphore);
@@ -294,14 +302,14 @@ uint8_t nrf24l01p_write_register(uint8_t address, uint8_t const *new_value, uint
   }
 }
 
-uint8_t nrf24l01p_write_register_async(uint8_t address, uint8_t const *new_value, uint8_t value_len, nrf24l01p_callback_t callback) {
+uint8_t nrf24l01p_send_command_async(uint8_t command, uint8_t const *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     spi_startframe();
-    usart_put(SPI_CNTL, SPICMD_W_REGISTER(address)); // Write out the address
+    usart_put(SPI_CNTL, command); // Write out the address
     is_command_async = true;
     current_byte_index = 0;
-    bytes_len = value_len;
-    bytes_to_send = (uint8_t *)new_value;
+    bytes_len = data_len;
+    bytes_to_send = (uint8_t *)data;
     current_function_callback = callback;
     usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
     return 0;

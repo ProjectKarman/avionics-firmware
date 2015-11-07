@@ -65,6 +65,8 @@ uint8_t nrf24l01p_write_register_single(uint8_t address, uint8_t new_value);
 uint8_t nrf24l01p_write_register_single_async(uint8_t address, uint8_t new_value, nrf24l01p_callback_t callback);
 uint8_t nrf24l01p_write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len);
 uint8_t nrf24l01p_write_register_async(uint8_t address, uint8_t const *new_value, uint8_t value_len, nrf24l01p_callback_t callback);
+uint8_t nrf24l01p_send_command(uint8_t command, uint8_t const *data, uint8_t data_len);
+uint8_t nrf24l01p_send_command_async(uint8_t command, uint8_t const *data, uint8_t data_len, nrf24l01p_callback_t callback);
 void nrf24l01p_start_operation(void);
 void nrf24l01p_end_operation(void);
 
