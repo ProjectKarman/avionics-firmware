@@ -351,11 +351,11 @@ ISR(USARTC0_TXC_vect) {
   else {
     // Transfer complete
     spi_endframe();
+    usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
     if(is_command_async) {
-      if(current_function_callback) {
-        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
-        current_function_callback();
-        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+      xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+      if(current_function_callback) {  
+        current_function_callback();   
       }
     }
     else {
