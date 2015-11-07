@@ -194,6 +194,10 @@ void nrf24l01p_reset_interrupts(void) {
   nrf24l01p_write_register_single(REG_STATUS, STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS);
 }
 
+void nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback) {
+  nrf24l01p_write_register_single_async(REG_STATUS, STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS, callback);
+}
+
 void nrf24l01p_set_channel(uint8_t channel_num) {
   nrf24l01p_write_register_single(REG_RF_CH, channel_num);
 };
@@ -264,6 +268,10 @@ void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value) {
 
 uint8_t inline nrf24l01p_write_register_single(uint8_t address, uint8_t new_value) {
   return nrf24l01p_write_register(address, &new_value, 1);
+}
+
+uint8_t inline nrf24l01p_write_register_single_async(uint8_t address, uint8_t new_value, nrf24l01p_callback_t callback) {
+  return nrf24l01p_write_register_async(address, &new_value, 1, callback);
 }
 
 uint8_t nrf24l01p_write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len) {
