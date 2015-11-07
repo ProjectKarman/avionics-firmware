@@ -209,7 +209,7 @@ static void dma_xfer_complete_handler(void) {
 }
 
 static void nrf24l01p_interrupt_handler(void) {
-  nrf24l01p_reset_interrupts(); // TODO: Not ideal at all...
+  nrf24l01p_reset_interrupts();
   switch(state) {
     case TRANSCEIVER_STATE_TRANSMITTING:
       // Packet transmitted
