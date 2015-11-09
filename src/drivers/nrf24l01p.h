@@ -44,28 +44,21 @@ typedef void (*nrf24l01p_callback_t)(void);
 
 // Driver Functions
 void nrf24l01p_init(void);
-void nrf24l01p_read_regs(void);
-void nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr);
-void nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode);
-void nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr);
-void nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask);
-void nrf24l01p_reset_interrupts(void);
-void nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback);
-void nrf24l01p_set_channel(uint8_t channel_num);
-void nrf24l01p_wake(void);
-void nrf24l01p_sleep(void);
+uint8_t nrf24l01p_read_regs(void);
+uint8_t nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr);
+uint8_t nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode);
+uint8_t nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr);
+uint8_t nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask);
+uint8_t nrf24l01p_reset_interrupts(void);
+uint8_t nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback);
+uint8_t nrf24l01p_set_channel(uint8_t channel_num);
+uint8_t nrf24l01p_wake(void);
+uint8_t nrf24l01p_sleep(void);
 uint8_t nrf24l01p_flush_tx_fifo(void);
 uint8_t nrf24l01p_flush_rx_fifo(void);
 uint8_t nrf24l01p_send_payload(uint8_t *data, size_t data_len);
 uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback);
 void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback);
-void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value);
-uint8_t nrf24l01p_write_register_single(uint8_t address, uint8_t new_value);
-uint8_t nrf24l01p_write_register_single_async(uint8_t address, uint8_t new_value, nrf24l01p_callback_t callback);
-uint8_t nrf24l01p_write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len);
-uint8_t nrf24l01p_write_register_async(uint8_t address, uint8_t const *new_value, uint8_t value_len, nrf24l01p_callback_t callback);
-uint8_t nrf24l01p_send_command(uint8_t command, uint8_t const *data, uint8_t data_len);
-uint8_t nrf24l01p_send_command_async(uint8_t command, uint8_t const *data, uint8_t data_len, nrf24l01p_callback_t callback);
 void nrf24l01p_start_operation(void);
 void nrf24l01p_end_operation(void);
 
