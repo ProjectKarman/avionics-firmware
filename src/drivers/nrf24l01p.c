@@ -84,7 +84,8 @@ enum dma_config_state {
 };
 
 // Function Prototypes
-static void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value);
+static void read_register_single(uint8_t address, uint8_t *reg_value);
+static void read_register(uint8_t address, uint8_t *reg_value, uint8_t value_len);
 static void write_register_single(uint8_t address, uint8_t new_value);
 static void write_register_single_async(uint8_t address, uint8_t new_value, nrf24l01p_callback_t callback);
 static void write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len);
@@ -144,8 +145,8 @@ void nrf24l01p_init(void) {
 uint8_t nrf24l01p_read_regs(void)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    nrf24l01p_read_register(REG_CONFIG, &local_reg_config);
-    nrf24l01p_read_register(REG_RF_SETUP, &local_reg_rf_setup);
+    read_register_single(REG_CONFIG, &local_reg_config);
+    read_register_single(REG_RF_SETUP, &local_reg_rf_setup);
 
     return 0;
   }
@@ -381,11 +382,14 @@ void inline nrf24l01p_end_operation(void) {
   ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_LOW);
 }
 
-static void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value) {
-  spi_startframe();
-  usart_spi_write_single(SPI_CNTL, SPICMD_R_REGISTER(address));
-  usart_spi_read_single(SPI_CNTL, reg_value);
-  spi_endframe();
+static void inline read_register_single(uint8_t address, uint8_t *reg_value) {
+  read_register(address, reg_value, 1);
+}
+
+static void read_register(uint8_t address, uint8_t *reg_value, uint8_t value_len) {
+  bytes_received = pvPortMalloc(sizeof(uint8_t) * value_len);
+  send_command(SPICMD_R_REGISTER(address), NULL, value_len);
+  reg_value = bytes_received;
 }
 
 static void inline write_register_single(uint8_t address, uint8_t new_value) {
@@ -397,10 +401,12 @@ static void inline write_register_single_async(uint8_t address, uint8_t new_valu
 }
 
 static void inline write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len) {
+  bytes_received = NULL;
   send_command(SPICMD_W_REGISTER(address), new_value, value_len);
 }
 
 static void write_register_async(uint8_t address, uint8_t const *new_value, uint8_t value_len, nrf24l01p_callback_t callback) {
+  bytes_received = NULL;
   send_command_async(SPICMD_W_REGISTER(address), new_value, value_len, callback);
 }
 
@@ -487,7 +493,12 @@ ISR(USARTC0_TXC_vect) {
   }
 
   if(current_byte_index < bytes_len) {
-    usart_put(SPI_CNTL, bytes_to_send[current_byte_index++]);
+    if(bytes_to_send != NULL) {
+      usart_put(SPI_CNTL, bytes_to_send[current_byte_index++]);
+    }
+    else {
+      usart_put(SPI_CNTL, 0xFF);
+    }
   }
   else {
     switch(current_command_type) {
