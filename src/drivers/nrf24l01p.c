@@ -217,10 +217,6 @@ void nrf24l01p_set_channel(uint8_t channel_num) {
   nrf24l01p_write_register_single(REG_RF_CH, channel_num);
 };
 
-void nrf24l01p_open(void) {
-  
-}
-
 void nrf24l01p_wake(void) {
   local_reg_config |= CONFIG_PWR_UP;
   nrf24l01p_write_register_single(REG_CONFIG, local_reg_config);
@@ -233,11 +229,11 @@ void nrf24l01p_sleep(void) {
 }
 
 uint8_t nrf24l01p_flush_tx_fifo(void) {
-  return nrf24l01p_write_register(SPICMD_FLUSH_TX, NULL, 0);
+  return nrf24l01p_send_command(SPICMD_FLUSH_TX, NULL, 0);
 }
 
 uint8_t nrf24l01p_flush_rx_fifo(void) {
-  return nrf24l01p_write_register(SPICMD_FLUSH_RX, NULL, 0);
+  return nrf24l01p_send_command(SPICMD_FLUSH_RX, NULL, 0);
 }
 
 uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
