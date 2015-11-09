@@ -93,10 +93,12 @@ static void config_dma_rx(void);
 // Driver Variables
 static uint8_t local_reg_config;
 static uint8_t local_reg_rf_setup;
+static volatile uint8_t local_reg_status;
 static nrf24l01p_callback_t dma_callback;
 static nrf24l01p_callback_t interrupt_callback;
 static nrf24l01p_callback_t current_function_callback;
 static uint8_t *bytes_to_send;
+static uint8_t *bytes_received;
 static uint8_t bytes_len;
 static volatile uint8_t current_byte_index;
 static SemaphoreHandle_t command_complete_semaphore;
@@ -236,13 +238,19 @@ uint8_t nrf24l01p_flush_rx_fifo(void) {
   return nrf24l01p_send_command(SPICMD_FLUSH_RX, NULL, 0);
 }
 
+uint8_t nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
+  return nrf24l01p_send_command(SPICMD_W_TX_PAYLOAD, data, data_len);
+}
+
 uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     config_dma_tx(data, data_len);
     spi_startframe();
     usart_put(SPI_CNTL, SPICMD_W_TX_PAYLOAD); // Write out the address
     current_command_type = CMD_TYPE_DMA;
-    current_byte_index = data_len + 1; // Manipulate index so that we can skip to the DMA interrupt handler
+    bytes_len = 0; // Manipulate length so that we can skip to the DMA interrupt handler
+    current_byte_index = 0;
+    bytes_received = NULL;
     current_function_callback = callback;
     usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
 
@@ -251,13 +259,6 @@ uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_
   else {
     return 1;
   }
-}
-
-void nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
-  spi_startframe();
-  usart_spi_write_single(SPI_CNTL, SPICMD_W_TX_PAYLOAD);
-  usart_spi_write_packet(SPI_CNTL, data, data_len);
-  spi_endframe();
 }
 
 void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback) {
@@ -382,6 +383,13 @@ ISR(PORTC_INT0_vect) {
 }
 
 ISR(USARTC0_TXC_vect) {
+  if(current_byte_index == 0) {
+    local_reg_status = usart_get(SPI_CNTL);
+  }
+  else if(bytes_received != NULL) {
+    bytes_received[current_byte_index - 1] = usart_get(SPI_CNTL); // Save the bytes to our buffer
+  }
+
   if(current_byte_index < bytes_len) {
     usart_put(SPI_CNTL, bytes_to_send[current_byte_index++]);
   }
