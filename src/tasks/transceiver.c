@@ -52,6 +52,7 @@ static void prepare_transmit_frame(void);
 
 static void dma_xfer_complete_handler(void);
 static void nrf24l01p_interrupt_handler(void);
+static void nrf24l01p_reset_interrupt_handler(void);
 static void protocol_timer_overflow_handler(void);
 static void protocol_timer_cc_match_handler(void);
 
@@ -131,7 +132,6 @@ static void transceiver_task_loop(void *p) {
 static void init_nrf24l01p(void) {
   nrf24l01p_read_regs();
   nrf24l01p_wake();
-  vTaskDelay(2);
   nrf24l01p_flush_rx_fifo();
   nrf24l01p_flush_tx_fifo();
   nrf24l01p_reset_interrupts();
@@ -209,28 +209,31 @@ static void dma_xfer_complete_handler(void) {
 }
 
 static void nrf24l01p_interrupt_handler(void) {
-  nrf24l01p_reset_interrupts_async(NULL);
+  nrf24l01p_reset_interrupts_async(nrf24l01p_reset_interrupt_handler);
+}
+
+static void nrf24l01p_reset_interrupt_handler(void) {
   switch(state) {
     case TRANSCEIVER_STATE_TRANSMITTING:
-      // Packet transmitted
-      fifo_fill_depth--;
-      downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
-      if(packet != NULL) {
-        nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
-      }
-      else if(fifo_fill_depth == 0) {
-        // No more packets to transmit
-        state = TRANSCEIVER_STATE_IDLE;
-        nrf24l01p_end_operation();
-        add_priority_event(TRANSCEIVER_EVENT_TX_FRAME_COMPLETE, NULL);
-      }
-      break;
+    // Packet transmitted
+    fifo_fill_depth--;
+    downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
+    if(packet != NULL) {
+      nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
+    }
+    else if(fifo_fill_depth == 0) {
+      // No more packets to transmit
+      state = TRANSCEIVER_STATE_IDLE;
+      nrf24l01p_end_operation();
+      add_priority_event(TRANSCEIVER_EVENT_TX_FRAME_COMPLETE, NULL);
+    }
+    break;
     case TRANSCEIVER_STATE_RECEIVING:
-      // Packet received
-      fifo_fill_depth++;
-      break;
+    // Packet received
+    fifo_fill_depth++;
+    break;
     default:
-      break;
+    break;
   }
 }
 

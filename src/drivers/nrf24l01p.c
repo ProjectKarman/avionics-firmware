@@ -224,6 +224,7 @@ void nrf24l01p_open(void) {
 void nrf24l01p_wake(void) {
   local_reg_config |= CONFIG_PWR_UP;
   nrf24l01p_write_register_single(REG_CONFIG, local_reg_config);
+  vTaskDelay(2);
 }
 
 void nrf24l01p_sleep(void) {
