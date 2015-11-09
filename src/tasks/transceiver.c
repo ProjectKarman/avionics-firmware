@@ -155,7 +155,7 @@ static void prepare_transmit_frame(void) {
   currently_building_frame = downlink_frame_create();
   downlink_frame_prepare_for_sending(frame_to_send);
   downlink_packet_t *first_packet = downlink_frame_get_packet(frame_to_send);
-  nrf24l01p_init_tx_payload_xfer(first_packet->bytes, first_packet->len, dma_xfer_complete_handler);
+  nrf24l01p_send_payload_async(first_packet->bytes, first_packet->len, dma_xfer_complete_handler);
 }
 
 static void add_message_to_frame(transceiver_message_t *new_message) {
@@ -197,7 +197,7 @@ static void dma_xfer_complete_handler(void) {
       if(fifo_fill_depth < 3) {
         downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
         if(packet != NULL) {
-          nrf24l01p_init_tx_payload_xfer(packet->bytes, packet->len, dma_xfer_complete_handler);
+          nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
         }
       }
       break;
@@ -216,7 +216,7 @@ static void nrf24l01p_interrupt_handler(void) {
       fifo_fill_depth--;
       downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
       if(packet != NULL) {
-        nrf24l01p_init_tx_payload_xfer(packet->bytes, packet->len, dma_xfer_complete_handler);
+        nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
       }
       else if(fifo_fill_depth == 0) {
         // No more packets to transmit

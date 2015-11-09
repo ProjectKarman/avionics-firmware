@@ -66,14 +66,29 @@
 // Peripheral Definitions
 #define SPI_CNTL_USART USARTC0
 #define SPI_CNTL (&SPI_CNTL_USART)
-#define DMA_CHANNEL 1
+#define DMA_TX_CHANNEL_NUM 1
+#define DMA_CHANNEL(num) DMA.CH##num
 
 #define SEMAPHORE_BLOCK_TIME 0
+
+enum command_type {
+  CMD_TYPE_SYNC,
+  CMD_TYPE_ASYNC,
+  CMD_TYPE_DMA,
+};
+
+enum dma_config_state {
+  DMA_CFG_NONE,
+  DMA_CFG_TX,
+  DMA_CFG_RX,
+};
 
 // Function Prototypes
 static void spi_startframe(void);
 static void spi_endframe(void);
 static void dma_channel_handler(enum dma_channel_status status);
+static void config_dma_tx(uint8_t *data, uint8_t data_len);
+static void config_dma_rx(void);
 
 // Driver Variables
 static uint8_t local_reg_config;
@@ -86,7 +101,7 @@ static uint8_t bytes_len;
 static volatile uint8_t current_byte_index;
 static SemaphoreHandle_t command_complete_semaphore;
 static SemaphoreHandle_t command_running_semaphore;
-static bool is_command_async;
+static enum command_type current_command_type;
 
 void nrf24l01p_init(void) {
   // Init GPIOs
@@ -224,35 +239,28 @@ uint8_t nrf24l01p_flush_rx_fifo(void) {
   return nrf24l01p_write_register(SPICMD_FLUSH_RX, NULL, 0);
 }
 
+uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    config_dma_tx(data, data_len);
+    spi_startframe();
+    usart_put(SPI_CNTL, SPICMD_W_TX_PAYLOAD); // Write out the address
+    current_command_type = CMD_TYPE_DMA;
+    current_byte_index = data_len + 1; // Manipulate index so that we can skip to the DMA interrupt handler
+    current_function_callback = callback;
+    usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
 void nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
   spi_startframe();
   usart_spi_write_single(SPI_CNTL, SPICMD_W_TX_PAYLOAD);
   usart_spi_write_packet(SPI_CNTL, data, data_len);
   spi_endframe();
-}
-
-void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, nrf24l01p_callback_t xfer_complete_callback) {
-  spi_startframe();
-
-  struct dma_channel_config dmach_conf;
-  memset(&dmach_conf, 0, sizeof(dmach_conf));
-  dma_channel_set_burst_length(&dmach_conf, DMA_CH_BURSTLEN_1BYTE_gc);
-  dma_channel_set_transfer_count(&dmach_conf, data_len);
-  dma_channel_set_src_reload_mode(&dmach_conf, DMA_CH_SRCRELOAD_TRANSACTION_gc);
-  dma_channel_set_dest_reload_mode(&dmach_conf, DMA_CH_DESTRELOAD_NONE_gc);
-  dma_channel_set_src_dir_mode(&dmach_conf, DMA_CH_SRCDIR_INC_gc);
-  dma_channel_set_dest_dir_mode(&dmach_conf, DMA_CH_DESTDIR_FIXED_gc);
-  dma_channel_set_source_address(&dmach_conf, (uint16_t)(uintptr_t)data);
-  dma_channel_set_destination_address(&dmach_conf, (uint16_t)(uintptr_t)&SPI_CNTL_USART.DATA);
-  dma_channel_set_trigger_source(&dmach_conf, DMA_CH_TRIGSRC_USARTC0_DRE_gc);
-  dma_channel_set_single_shot(&dmach_conf);
-  dma_callback = xfer_complete_callback;
-  dma_set_callback(DMA_CHANNEL, dma_channel_handler);
-  dma_channel_set_interrupt_level(&dmach_conf, DMA_INT_LVL_MED);
-  dma_channel_write_config(DMA_CHANNEL, &dmach_conf);
-
-  usart_spi_write_single(SPI_CNTL, SPICMD_W_TX_PAYLOAD);
-  dma_channel_enable(DMA_CHANNEL);
 }
 
 void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback) {
@@ -286,7 +294,7 @@ uint8_t nrf24l01p_send_command(uint8_t command, uint8_t const *data, uint8_t dat
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     spi_startframe();
     usart_put(SPI_CNTL, command); // Write out command
-    is_command_async = false;
+    current_command_type = CMD_TYPE_SYNC;
     current_byte_index = 0;
     bytes_len = data_len;
     bytes_to_send = (uint8_t *)data;
@@ -306,7 +314,7 @@ uint8_t nrf24l01p_send_command_async(uint8_t command, uint8_t const *data, uint8
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     spi_startframe();
     usart_put(SPI_CNTL, command); // Write out the address
-    is_command_async = true;
+    current_command_type = CMD_TYPE_ASYNC;
     current_byte_index = 0;
     bytes_len = data_len;
     bytes_to_send = (uint8_t *)data;
@@ -327,6 +335,28 @@ void inline nrf24l01p_end_operation(void) {
   ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_LOW);
 }
 
+static void config_dma_tx(uint8_t *data, uint8_t data_len) {
+  struct dma_channel_config dmach_conf;
+  memset(&dmach_conf, 0, sizeof(dmach_conf));
+  dma_channel_set_burst_length(&dmach_conf, DMA_CH_BURSTLEN_1BYTE_gc);
+  dma_channel_set_transfer_count(&dmach_conf, data_len);
+  dma_channel_set_src_reload_mode(&dmach_conf, DMA_CH_SRCRELOAD_TRANSACTION_gc);
+  dma_channel_set_dest_reload_mode(&dmach_conf, DMA_CH_DESTRELOAD_NONE_gc);
+  dma_channel_set_src_dir_mode(&dmach_conf, DMA_CH_SRCDIR_INC_gc);
+  dma_channel_set_dest_dir_mode(&dmach_conf, DMA_CH_DESTDIR_FIXED_gc);
+  dma_channel_set_source_address(&dmach_conf, (uint16_t)(uintptr_t)data);
+  dma_channel_set_destination_address(&dmach_conf, (uint16_t)(uintptr_t)&SPI_CNTL_USART.DATA);
+  dma_channel_set_trigger_source(&dmach_conf, DMA_CH_TRIGSRC_USARTC0_DRE_gc);
+  dma_channel_set_single_shot(&dmach_conf);
+  dma_set_callback(DMA_TX_CHANNEL_NUM, dma_channel_handler);
+  dma_channel_set_interrupt_level(&dmach_conf, DMA_INT_LVL_MED);
+  dma_channel_write_config(DMA_TX_CHANNEL_NUM, &dmach_conf);
+}
+
+static void config_dma_rx(void) {
+
+}
+
 static void spi_startframe(void) {
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_LOW);
 }
@@ -338,8 +368,10 @@ static void spi_endframe() {
 static void dma_channel_handler(enum dma_channel_status status) {
   spi_endframe();
   // Clear USART FIFO
-  SPI_CNTL_USART.CTRLB &= ~USART_RXEN_bm;
-  SPI_CNTL_USART.CTRLB |= USART_RXEN_bm;
+  usart_get(SPI_CNTL);
+  usart_get(SPI_CNTL);
+  //SPI_CNTL_USART.CTRLB &= ~USART_RXEN_bm;
+  //SPI_CNTL_USART.CTRLB |= USART_RXEN_bm;
 
   if(dma_callback) {
     dma_callback();
@@ -357,17 +389,24 @@ ISR(USARTC0_TXC_vect) {
     usart_put(SPI_CNTL, bytes_to_send[current_byte_index++]);
   }
   else {
-    // Transfer complete
-    spi_endframe();
-    usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
-    if(is_command_async) {
-      xSemaphoreGiveFromISR(command_running_semaphore, NULL);
-      if(current_function_callback) {  
-        current_function_callback();   
-      }
-    }
-    else {
-      xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
+    switch(current_command_type) {
+      case CMD_TYPE_SYNC:
+        spi_endframe();
+        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
+        xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
+        break;
+      case CMD_TYPE_ASYNC:
+        spi_endframe();
+        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
+        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+        if(current_function_callback) {
+          current_function_callback();
+        }
+        break;
+      case CMD_TYPE_DMA:
+        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
+        dma_channel_enable(DMA_TX_CHANNEL_NUM);
+        break;
     }
   }
 }
