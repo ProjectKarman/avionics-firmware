@@ -232,7 +232,7 @@ static void dma_xfer_complete_handler(void) {
       if(fifo_fill_depth < 3) {
         downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
         if(packet != NULL) {
-          nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
+          nrf24l01p_send_payload_async_from_isr(packet->bytes, packet->len, dma_xfer_complete_handler);
         }
       }
       break;
@@ -248,7 +248,7 @@ static void dma_xfer_complete_handler(void) {
 }
 
 static void nrf24l01p_interrupt_handler(void) {
-  nrf24l01p_reset_interrupts_async(nrf24l01p_reset_interrupt_handler);
+  nrf24l01p_reset_interrupts_async_from_isr(nrf24l01p_reset_interrupt_handler);
 }
 
 static void nrf24l01p_reset_interrupt_handler(void) {
@@ -258,7 +258,7 @@ static void nrf24l01p_reset_interrupt_handler(void) {
       fifo_fill_depth--;
       downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
       if(packet != NULL) {
-        nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
+        nrf24l01p_send_payload_async_from_isr(packet->bytes, packet->len, dma_xfer_complete_handler);
       }
       else if(fifo_fill_depth == 0) {
         // No more packets to transmit
