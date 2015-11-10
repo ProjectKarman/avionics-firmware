@@ -127,9 +127,9 @@ static void init_nrf24l01p(void) {
   nrf24l01p_set_channel(20);
   nrf24l01p_set_data_rate(NRF24L01P_DR_2M);
   nrf24l01p_set_pa_power(NRF24L01P_PWR_N18DBM);
-  nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_TX_DS | NRF24L01P_INTR_RX_DR);
-  //nrf24l01p_set_autoack_mask(0x0);
-  //nrf24l01p_set_retransmission(0, 0);
+  nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_MAX_RT);
+  nrf24l01p_set_autoack_mask(0x0);
+  nrf24l01p_set_retransmission(0, 0);
   nrf24l01p_set_address((uint8_t *)address, 5);
   nrf24l01p_set_interrupt_pin_handler(nrf24l01p_interrupt_handler);
 }
