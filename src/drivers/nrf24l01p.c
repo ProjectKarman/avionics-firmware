@@ -147,7 +147,6 @@ uint8_t nrf24l01p_read_regs(void)
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     read_register_single(REG_CONFIG, &local_reg_config);
     read_register_single(REG_RF_SETUP, &local_reg_rf_setup);
-
     return 0;
   }
   else {
@@ -389,7 +388,8 @@ static void inline read_register_single(uint8_t address, uint8_t *reg_value) {
 static void read_register(uint8_t address, uint8_t *reg_value, uint8_t value_len) {
   bytes_received = pvPortMalloc(sizeof(uint8_t) * value_len);
   send_command(SPICMD_R_REGISTER(address), NULL, value_len);
-  reg_value = bytes_received;
+  *reg_value = *bytes_received;
+  vPortFree(bytes_received);
 }
 
 static void inline write_register_single(uint8_t address, uint8_t new_value) {
@@ -411,16 +411,15 @@ static void write_register_async(uint8_t address, uint8_t const *new_value, uint
 }
 
 static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len) {
-  spi_startframe();
-  usart_put(SPI_CNTL, command); // Write out command
   current_command_type = CMD_TYPE_SYNC;
   current_byte_index = 0;
   bytes_len = data_len;
   bytes_to_send = (uint8_t *)data;
   usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
+  spi_startframe();
+  usart_put(SPI_CNTL, command); // Write out command
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
   xSemaphoreGive(command_running_semaphore);
-  usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
   // SPI Frame is ended in the USART ISR
 }
 
@@ -473,6 +472,7 @@ static void dma_channel_handler(enum dma_channel_status status) {
   //SPI_CNTL_USART.CTRLB &= ~USART_RXEN_bm;
   //SPI_CNTL_USART.CTRLB |= USART_RXEN_bm;
 
+  xSemaphoreGiveFromISR(command_running_semaphore, NULL);
   if(current_function_callback) {
     current_function_callback();
   }
@@ -498,6 +498,7 @@ ISR(USARTC0_TXC_vect) {
     }
     else {
       usart_put(SPI_CNTL, 0xFF);
+      current_byte_index++;
     }
   }
   else {
