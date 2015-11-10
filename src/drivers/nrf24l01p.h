@@ -45,6 +45,8 @@ typedef void (*nrf24l01p_callback_t)(void);
 // Driver Functions
 void nrf24l01p_init(void);
 uint8_t nrf24l01p_read_regs(void);
+uint8_t nrf24l01p_set_autoack_mask(uint8_t mask);
+uint8_t nrf24l01p_set_retransmission(uint8_t delay, uint8_t count);
 uint8_t nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr);
 uint8_t nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode);
 uint8_t nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr);

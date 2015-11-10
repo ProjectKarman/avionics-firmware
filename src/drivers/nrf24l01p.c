@@ -102,6 +102,8 @@ static void config_dma_rx(void);
 // Driver Variables
 static uint8_t local_reg_config;
 static uint8_t local_reg_rf_setup;
+static uint8_t local_reg_en_aa;
+static uint8_t local_reg_setup_retr;
 static volatile uint8_t local_reg_status;
 static nrf24l01p_callback_t interrupt_callback;
 static nrf24l01p_callback_t current_function_callback;
@@ -147,6 +149,37 @@ uint8_t nrf24l01p_read_regs(void)
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     read_register_single(REG_CONFIG, &local_reg_config);
     read_register_single(REG_RF_SETUP, &local_reg_rf_setup);
+    read_register_single(REG_EN_AA, &local_reg_en_aa);
+    read_register_single(REG_SETUP_RETR, &local_reg_setup_retr);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t nrf24l01p_set_autoack_mask(uint8_t mask) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_reg_en_aa = mask;
+    write_register_single(REG_EN_AA, local_reg_en_aa);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t nrf24l01p_set_retransmission(uint8_t delay, uint8_t count) {
+  // TODO: Care about this function
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_reg_setup_retr = 0;
+    local_reg_setup_retr |= count & ~0xF0;
+    local_reg_setup_retr |= delay << 4;
+    write_register_single(REG_EN_AA, local_reg_en_aa);
     xSemaphoreGive(command_running_semaphore);
 
     return 0;
