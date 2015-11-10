@@ -21,7 +21,7 @@
 
 #define PACKET_BYTES 20
 
-#define EVENT_QUEUE_DEPTH 10
+#define EVENT_QUEUE_DEPTH 5
 
 enum transeiver_state {
   TRANSCEIVER_STATE_IDLE,
@@ -44,6 +44,7 @@ typedef struct {
 
 static void transceiver_task_loop(void *p);
 static void init_nrf24l01p(void);
+static void init_timer(void);
 static void add_priority_event(enum transceiver_event_type event_type, void *data);
 static void prepare_transmit_frame(void);
 static void add_message_to_frame(transceiver_message_t *new_message);
@@ -52,6 +53,7 @@ static void prepare_transmit_frame(void);
 
 static void dma_xfer_complete_handler(void);
 static void nrf24l01p_interrupt_handler(void);
+static void nrf24l01p_reset_interrupt_handler(void);
 static void protocol_timer_overflow_handler(void);
 static void protocol_timer_cc_match_handler(void);
 
@@ -66,18 +68,6 @@ static downlink_frame_t *frame_to_send;
 void transceiver_start_task(void) {
   xTaskCreate(transceiver_task_loop, "transceiver", 200, NULL, 2, &transceiver_task_handle);
   event_queue = xQueueCreate(EVENT_QUEUE_DEPTH, sizeof(transceiver_event_t));
-
-  // Configure timer to generate frame phase interrupts
-  tc_enable(&PROTOCOL_TIMER);
-  tc_set_wgm(&PROTOCOL_TIMER, TC_WG_NORMAL);
-  tc_write_period(&PROTOCOL_TIMER, F_CPU / (4 * PROTOCOL_FRAME_RATE));
-  tc_write_cc(&PROTOCOL_TIMER, TC_CCA, 24000); // TODO: Come up with a general eqn
-  tc_enable_cc_channels(&PROTOCOL_TIMER, TC_CCAEN);
-  tc_set_overflow_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_overflow_handler);
-  tc_set_overflow_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
-  tc_set_cca_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_cc_match_handler);
-  tc_set_cca_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
-  tc_write_clock_source(&PROTOCOL_TIMER, TC_CLKSEL_DIV4_gc);
 }
 
 void transceiver_send_message(transceiver_message_t *message, TickType_t ticks_to_wait) {
@@ -103,9 +93,7 @@ void transceiver_message_destroy(transceiver_message_t *message) {
 
 static void transceiver_task_loop(void *p) {
   init_nrf24l01p(); 
-
-  //nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_TX_DS);
-  nrf24l01p_set_interrupt_pin_handler(nrf24l01p_interrupt_handler);
+  init_timer();
 
   currently_building_frame = downlink_frame_create();
 
@@ -129,15 +117,35 @@ static void transceiver_task_loop(void *p) {
 }
 
 static void init_nrf24l01p(void) {
+  char *address = "W1KBN";
+
   nrf24l01p_read_regs();
   nrf24l01p_wake();
-  vTaskDelay(2);
   nrf24l01p_flush_rx_fifo();
   nrf24l01p_flush_tx_fifo();
   nrf24l01p_reset_interrupts();
   nrf24l01p_set_channel(20);
   nrf24l01p_set_data_rate(NRF24L01P_DR_2M);
   nrf24l01p_set_pa_power(NRF24L01P_PWR_N18DBM);
+  nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_TX_DS | NRF24L01P_INTR_RX_DR);
+  //nrf24l01p_set_autoack_mask(0x0);
+  //nrf24l01p_set_retransmission(0, 0);
+  nrf24l01p_set_address((uint8_t *)address, 5);
+  nrf24l01p_set_interrupt_pin_handler(nrf24l01p_interrupt_handler);
+}
+
+static void init_timer(void) {
+  // Configure timer to generate frame phase interrupts
+  tc_enable(&PROTOCOL_TIMER);
+  tc_set_wgm(&PROTOCOL_TIMER, TC_WG_NORMAL);
+  tc_write_period(&PROTOCOL_TIMER, F_CPU / (4 * PROTOCOL_FRAME_RATE));
+  tc_write_cc(&PROTOCOL_TIMER, TC_CCA, 24000); // TODO: Come up with a general eqn
+  tc_enable_cc_channels(&PROTOCOL_TIMER, TC_CCAEN);
+  tc_set_overflow_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_overflow_handler);
+  tc_set_overflow_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
+  tc_set_cca_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_cc_match_handler);
+  tc_set_cca_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
+  tc_write_clock_source(&PROTOCOL_TIMER, TC_CLKSEL_DIV4_gc);
 }
 
 static inline void add_priority_event(enum transceiver_event_type event_type, void *data) {
@@ -155,7 +163,7 @@ static void prepare_transmit_frame(void) {
   currently_building_frame = downlink_frame_create();
   downlink_frame_prepare_for_sending(frame_to_send);
   downlink_packet_t *first_packet = downlink_frame_get_packet(frame_to_send);
-  nrf24l01p_init_tx_payload_xfer(first_packet->bytes, first_packet->len, dma_xfer_complete_handler);
+  nrf24l01p_send_payload_async(first_packet->bytes, first_packet->len, dma_xfer_complete_handler);
 }
 
 static void add_message_to_frame(transceiver_message_t *new_message) {
@@ -191,15 +199,16 @@ static downlink_packet_t *general_message_to_packet(general_message_t *message) 
 static void dma_xfer_complete_handler(void) {
   switch(state) {
     case TRANSCEIVER_STATE_PREPARING:
-    case TRANSCEIVER_STATE_TRANSMITTING:
-      // DMA Payload transfer just completed
-      fifo_fill_depth++;
-      if(fifo_fill_depth < 3) {
+      if(++fifo_fill_depth < 3) {
         downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
         if(packet != NULL) {
-          nrf24l01p_init_tx_payload_xfer(packet->bytes, packet->len, dma_xfer_complete_handler);
+          //nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
         }
       }
+      break;
+    case TRANSCEIVER_STATE_TRANSMITTING:
+      // DMA Payload transfer just completed
+      fifo_fill_depth++;      
       break;
     case TRANSCEIVER_STATE_RECEIVING:
       break;
@@ -209,14 +218,17 @@ static void dma_xfer_complete_handler(void) {
 }
 
 static void nrf24l01p_interrupt_handler(void) {
-  nrf24l01p_reset_interrupts(); // TODO: Not ideal at all...
+  nrf24l01p_reset_interrupts_async(nrf24l01p_reset_interrupt_handler);
+}
+
+static void nrf24l01p_reset_interrupt_handler(void) {
   switch(state) {
     case TRANSCEIVER_STATE_TRANSMITTING:
       // Packet transmitted
       fifo_fill_depth--;
       downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
       if(packet != NULL) {
-        nrf24l01p_init_tx_payload_xfer(packet->bytes, packet->len, dma_xfer_complete_handler);
+        nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
       }
       else if(fifo_fill_depth == 0) {
         // No more packets to transmit

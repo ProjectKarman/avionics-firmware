@@ -8,11 +8,13 @@
 #include "asf.h"
 #include "usart_spi.h"
 #include "nrf24l01p.h"
-#include <util/delay.h>
 #include <string.h>
+#include <inttypes.h>
+#include <stddef.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
 
 // Chip SPI Commands
 #define SPICMD_R_REGISTER(reg) (0x00 | reg)
@@ -47,11 +49,11 @@
 #define STATUS_RX_DR (1 << 6)
 
 // RF SETUP reg bits
+#define RF_SETUP_RF_PWR0 (1 << 1)
+#define RF_SETUP_RF_PWR1 (1 << 2)
+#define RF_SETUP_RF_DR_HIGH (1 << 3)
 #define RF_SETUP_PLL_LOCK (1 << 4)
 #define RF_SETUP_RF_DR_LOW (1 << 5)
-#define RF_SETUP_RF_DR_HIGH (1 << 3)
-#define RF_SETUP_RF_PWR1 (1 << 2)
-#define RF_SETUP_RF_PWR0 (1 << 1)
 
 // IO Definitions
 #define SPI_MOSI_PIN IOPORT_CREATE_PIN(PORTC, 3)
@@ -64,23 +66,54 @@
 // Peripheral Definitions
 #define SPI_CNTL_USART USARTC0
 #define SPI_CNTL (&SPI_CNTL_USART)
-#define DMA_CHANNEL 1
+#define DMA_TX_CHANNEL_NUM 1
+#define DMA_CHANNEL(num) DMA.CH##num
+
+#define SEMAPHORE_BLOCK_TIME 0
+
+enum command_type {
+  CMD_TYPE_SYNC,
+  CMD_TYPE_ASYNC,
+  CMD_TYPE_DMA,
+};
+
+enum dma_config_state {
+  DMA_CFG_NONE,
+  DMA_CFG_TX,
+  DMA_CFG_RX,
+};
 
 // Function Prototypes
+static void read_register_single(uint8_t address, uint8_t *reg_value);
+static void read_register(uint8_t address, uint8_t *reg_value, uint8_t value_len);
+static void write_register_single(uint8_t address, uint8_t new_value);
+static void write_register_single_async(uint8_t address, uint8_t new_value, nrf24l01p_callback_t callback);
+static void write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len);
+static void write_register_async(uint8_t address, uint8_t const *new_value, uint8_t value_len, nrf24l01p_callback_t callback);
+static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len);
+static void send_command_async(uint8_t command, uint8_t const *data, uint8_t data_len, nrf24l01p_callback_t callback);
 static void spi_startframe(void);
 static void spi_endframe(void);
 static void dma_channel_handler(enum dma_channel_status status);
+static void config_dma_tx(uint8_t *data, uint8_t data_len);
+static void config_dma_rx(void);
+
 
 // Driver Variables
 static uint8_t local_reg_config;
 static uint8_t local_reg_rf_setup;
-static nrf24l01p_callback_t dma_callback;
+static uint8_t local_reg_en_aa;
+static uint8_t local_reg_setup_retr;
+static volatile uint8_t local_reg_status;
 static nrf24l01p_callback_t interrupt_callback;
-static nrf24l01p_callback_t current_command_callback;
-static bool is_command_running;
+static nrf24l01p_callback_t current_function_callback;
 static uint8_t *bytes_to_send;
+static uint8_t *bytes_received;
 static uint8_t bytes_len;
-static uint8_t current_byte_index;
+static volatile uint8_t current_byte_index;
+static SemaphoreHandle_t command_complete_semaphore;
+static SemaphoreHandle_t command_running_semaphore;
+static enum command_type current_command_type;
 
 void nrf24l01p_init(void) {
   // Init GPIOs
@@ -102,126 +135,363 @@ void nrf24l01p_init(void) {
   usart_spi_init(SPI_CNTL);
   usart_spi_setup_device(SPI_CNTL, &spi_conf, SPI_MODE_0, 8000000, 0);
   spi_endframe();
-  is_command_running = false;
-}
 
-void nrf24l01p_read_regs(void) {
-  nrf24l01p_read_register(REG_CONFIG, &local_reg_config);
-  nrf24l01p_read_register(REG_RF_SETUP, &local_reg_rf_setup);
-}
-
-void nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr) {
-  switch(new_dr)
-  {
-    case NRF24L01P_DR_250K:
-      local_reg_rf_setup |= RF_SETUP_RF_DR_LOW;
-      local_reg_rf_setup &= ~RF_SETUP_RF_DR_HIGH;
-      break;
-    case NRF24L01P_DR_1M:
-      local_reg_rf_setup &= ~RF_SETUP_RF_DR_LOW;
-      local_reg_rf_setup &= ~RF_SETUP_RF_DR_HIGH;
-      break;
-    case NRF24L01P_DR_2M:
-      local_reg_rf_setup &= ~RF_SETUP_RF_DR_LOW;
-      local_reg_rf_setup |= RF_SETUP_RF_DR_HIGH;
-      break;
+  // OS Level Structures
+  command_running_semaphore = xSemaphoreCreateBinary();
+  if(command_running_semaphore) {
+    xSemaphoreGive(command_running_semaphore);
   }
-  nrf24l01p_write_register(REG_RF_SETUP, local_reg_rf_setup);
+  command_complete_semaphore = xSemaphoreCreateBinary();
+}
+
+uint8_t nrf24l01p_read_regs(void)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    read_register_single(REG_CONFIG, &local_reg_config);
+    read_register_single(REG_RF_SETUP, &local_reg_rf_setup);
+    read_register_single(REG_EN_AA, &local_reg_en_aa);
+    read_register_single(REG_SETUP_RETR, &local_reg_setup_retr);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t nrf24l01p_set_autoack_mask(uint8_t mask) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_reg_en_aa = mask;
+    write_register_single(REG_EN_AA, local_reg_en_aa);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t nrf24l01p_set_retransmission(uint8_t delay, uint8_t count) {
+  // TODO: Care about this function
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_reg_setup_retr = 0;
+    local_reg_setup_retr |= count & ~0xF0;
+    local_reg_setup_retr |= delay << 4;
+    write_register_single(REG_EN_AA, local_reg_en_aa);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    switch(new_dr)
+    {
+      case NRF24L01P_DR_250K:
+        local_reg_rf_setup |= RF_SETUP_RF_DR_LOW;
+        local_reg_rf_setup &= ~RF_SETUP_RF_DR_HIGH;
+        break;
+      case NRF24L01P_DR_1M:
+        local_reg_rf_setup &= ~RF_SETUP_RF_DR_LOW;
+        local_reg_rf_setup &= ~RF_SETUP_RF_DR_HIGH;
+        break;
+      case NRF24L01P_DR_2M:
+        local_reg_rf_setup &= ~RF_SETUP_RF_DR_LOW;
+        local_reg_rf_setup |= RF_SETUP_RF_DR_HIGH;
+        break;
+    }
+    write_register_single(REG_RF_SETUP, local_reg_rf_setup);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
 };
 
-void nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode) {
-  switch(mode)
-  {
-    case NRF24L01P_MODE_TX:
-      local_reg_config &= ~CONFIG_PRIM_RX;
-  	  break;
-    case NRF24L01P_MODE_RX:
-      local_reg_config |= CONFIG_PRIM_RX;
-  	  break;
+uint8_t nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    switch(mode)
+    {
+      case NRF24L01P_MODE_TX:
+        local_reg_config &= ~CONFIG_PRIM_RX;
+  	    break;
+      case NRF24L01P_MODE_RX:
+        local_reg_config |= CONFIG_PRIM_RX;
+  	    break;
+    }
+    write_register_single(REG_CONFIG, local_reg_config);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
   }
-  nrf24l01p_write_register(REG_CONFIG, local_reg_config);
+  else {
+    return 1;
+  }
 };
 
-void nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr) {
-  switch(new_pwr)
-  {
-    case NRF24L01P_PWR_0DBM:
-      local_reg_rf_setup |= RF_SETUP_RF_PWR1 | RF_SETUP_RF_PWR0;
-      break;
-    case NRF24L01P_PWR_N6DBM:
-      local_reg_rf_setup |= RF_SETUP_RF_PWR1;
-      local_reg_rf_setup &= ~RF_SETUP_RF_PWR0;
-      break;
-    case NRF24L01P_PWR_N12DBM:
-      local_reg_rf_setup &= ~RF_SETUP_RF_PWR1;
-      local_reg_rf_setup |= RF_SETUP_RF_PWR0;
-      break;
-    case NRF24L01P_PWR_N18DBM:
-    local_reg_rf_setup &= ~RF_SETUP_RF_PWR1;
-    local_reg_rf_setup &= ~RF_SETUP_RF_PWR0;
-    break;
+uint8_t nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    switch(new_pwr)
+    {
+      case NRF24L01P_PWR_0DBM:
+        local_reg_rf_setup |= RF_SETUP_RF_PWR1 | RF_SETUP_RF_PWR0;
+        break;
+      case NRF24L01P_PWR_N6DBM:
+        local_reg_rf_setup |= RF_SETUP_RF_PWR1;
+        local_reg_rf_setup &= ~RF_SETUP_RF_PWR0;
+        break;
+      case NRF24L01P_PWR_N12DBM:
+        local_reg_rf_setup &= ~RF_SETUP_RF_PWR1;
+        local_reg_rf_setup |= RF_SETUP_RF_PWR0;
+        break;
+      case NRF24L01P_PWR_N18DBM:
+        local_reg_rf_setup &= ~RF_SETUP_RF_PWR1;
+        local_reg_rf_setup &= ~RF_SETUP_RF_PWR0;
+        break;
+    }
+    write_register_single(REG_RF_SETUP, local_reg_rf_setup);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
   }
-  nrf24l01p_write_register(REG_RF_SETUP, local_reg_rf_setup);
+  else {
+    return 1;
+  }
 };
 
-void nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask) {
-  local_reg_config &= ~0x70; // Clear target bits
-  if(mask & NRF24L01P_INTR_RX_DR) {
-    local_reg_config |= CONFIG_MASK_RX_DR;
+uint8_t nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_reg_config &= ~0x70; // Clear target bits
+    if(mask & NRF24L01P_INTR_RX_DR) {
+      local_reg_config |= CONFIG_MASK_RX_DR;
+    }
+    if(mask & NRF24L01P_INTR_TX_DS) {
+      local_reg_config |= CONFIG_MASK_TX_DS;
+    }
+    if(mask & NRF24L01P_INTR_MAX_RT) {
+      local_reg_config |= CONFIG_MASK_MAX_RT;
+    }
+    write_register_single(REG_CONFIG, local_reg_config);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
   }
-  if(mask & NRF24L01P_INTR_TX_DS) {
-    local_reg_config |= CONFIG_MASK_TX_DS;
+  else {
+    return 1;
   }
-  if(mask & NRF24L01P_INTR_MAX_RT) {
-    local_reg_config |= CONFIG_MASK_MAX_RT;
-  }
-  nrf24l01p_write_register(REG_CONFIG, local_reg_config);
 }
 
-void nrf24l01p_reset_interrupts(void) {
-  nrf24l01p_write_register(REG_STATUS, STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS);
+uint8_t nrf24l01p_reset_interrupts(void)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    write_register_single(REG_STATUS, STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
 }
 
-void nrf24l01p_set_channel(uint8_t channel_num) {
-  nrf24l01p_write_register(REG_RF_CH, channel_num);
+uint8_t nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    write_register_single_async(REG_STATUS, STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS, callback);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t nrf24l01p_set_channel(uint8_t channel_num)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    write_register_single(REG_RF_CH, channel_num);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
 };
 
-void nrf24l01p_open(void) {
-  
+uint8_t nrf24l01p_set_address(uint8_t *address, uint8_t address_len)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    write_register(REG_TX_ADDR, address, address_len);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+};
+
+uint8_t nrf24l01p_wake(void)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_reg_config |= CONFIG_PWR_UP;
+    write_register_single(REG_CONFIG, local_reg_config);
+    vTaskDelay(2); // Delay per datasheet
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
 }
 
-void nrf24l01p_wake(void) {
-  local_reg_config |= CONFIG_PWR_UP;
-  nrf24l01p_write_register(REG_CONFIG, local_reg_config);
+uint8_t nrf24l01p_sleep(void)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_reg_config &= ~CONFIG_PWR_UP;
+    write_register_single(REG_CONFIG, local_reg_config);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
 }
 
-void nrf24l01p_sleep(void) {
-  local_reg_config &= ~CONFIG_PWR_UP;
-  nrf24l01p_write_register(REG_CONFIG, local_reg_config);
+uint8_t nrf24l01p_flush_tx_fifo(void) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    send_command(SPICMD_FLUSH_TX, NULL, 0);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
 }
 
-void nrf24l01p_flush_tx_fifo(void) {
+uint8_t nrf24l01p_flush_rx_fifo(void) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    send_command(SPICMD_FLUSH_RX, NULL, 0);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    send_command(SPICMD_W_TX_PAYLOAD, data, data_len);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    config_dma_tx(data, data_len);
+    spi_startframe();
+    usart_put(SPI_CNTL, SPICMD_W_TX_PAYLOAD); // Write out the address
+    current_command_type = CMD_TYPE_DMA;
+    bytes_len = 0; // Manipulate length so that we can skip to the DMA interrupt handler
+    current_byte_index = 0;
+    bytes_received = NULL;
+    current_function_callback = callback;
+    usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback) {
+  interrupt_callback = callback;
+}
+
+void inline nrf24l01p_start_operation(void) {
+  ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_HIGH);
+}
+
+void inline nrf24l01p_end_operation(void) {
+  ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_LOW);
+}
+
+static void inline read_register_single(uint8_t address, uint8_t *reg_value) {
+  read_register(address, reg_value, 1);
+}
+
+static void read_register(uint8_t address, uint8_t *reg_value, uint8_t value_len) {
+  bytes_received = reg_value;
+  send_command(SPICMD_R_REGISTER(address), NULL, value_len);
+  bytes_received = NULL;
+}
+
+static void inline write_register_single(uint8_t address, uint8_t new_value) {
+  write_register(address, &new_value, 1);
+}
+
+static void inline write_register_single_async(uint8_t address, uint8_t new_value, nrf24l01p_callback_t callback) {
+  write_register_async(address, &new_value, 1, callback);
+}
+
+static void inline write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len) {
+  bytes_received = NULL;
+  send_command(SPICMD_W_REGISTER(address), new_value, value_len);
+}
+
+static void write_register_async(uint8_t address, uint8_t const *new_value, uint8_t value_len, nrf24l01p_callback_t callback) {
+  bytes_received = NULL;
+  send_command_async(SPICMD_W_REGISTER(address), new_value, value_len, callback);
+}
+
+static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len) {
+  current_command_type = CMD_TYPE_SYNC;
+  current_byte_index = 0;
+  bytes_len = data_len;
+  bytes_to_send = (uint8_t *)data;
+  usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
   spi_startframe();
-  usart_spi_write_single(SPI_CNTL, SPICMD_FLUSH_TX);
-  spi_endframe();
+  usart_put(SPI_CNTL, command); // Write out command
+  xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
+  // SPI Frame is ended in the USART ISR
 }
 
-void nrf24l01p_flush_rx_fifo(void) {
+static void send_command_async(uint8_t command, uint8_t const *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   spi_startframe();
-  usart_spi_write_single(SPI_CNTL, SPICMD_FLUSH_RX);
-  spi_endframe();
+  usart_put(SPI_CNTL, command); // Write out the address
+  current_command_type = CMD_TYPE_ASYNC;
+  current_byte_index = 0;
+  bytes_len = data_len;
+  bytes_to_send = (uint8_t *)data;
+  current_function_callback = callback;
+  usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
 }
 
-void nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
-  spi_startframe();
-  usart_spi_write_single(SPI_CNTL, SPICMD_W_TX_PAYLOAD);
-  usart_spi_write_packet(SPI_CNTL, data, data_len);
-  spi_endframe();
-}
-
-void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, nrf24l01p_callback_t xfer_complete_callback) {
-  spi_startframe();
-
+static void config_dma_tx(uint8_t *data, uint8_t data_len) {
   struct dma_channel_config dmach_conf;
   memset(&dmach_conf, 0, sizeof(dmach_conf));
   dma_channel_set_burst_length(&dmach_conf, DMA_CH_BURSTLEN_1BYTE_gc);
@@ -234,85 +504,13 @@ void nrf24l01p_init_tx_payload_xfer(uint8_t *data, size_t data_len, nrf24l01p_ca
   dma_channel_set_destination_address(&dmach_conf, (uint16_t)(uintptr_t)&SPI_CNTL_USART.DATA);
   dma_channel_set_trigger_source(&dmach_conf, DMA_CH_TRIGSRC_USARTC0_DRE_gc);
   dma_channel_set_single_shot(&dmach_conf);
-  dma_callback = xfer_complete_callback;
-  dma_set_callback(DMA_CHANNEL, dma_channel_handler);
+  dma_set_callback(DMA_TX_CHANNEL_NUM, dma_channel_handler);
   dma_channel_set_interrupt_level(&dmach_conf, DMA_INT_LVL_MED);
-  dma_channel_write_config(DMA_CHANNEL, &dmach_conf);
-
-  usart_spi_write_single(SPI_CNTL, SPICMD_W_TX_PAYLOAD);
-  dma_channel_enable(DMA_CHANNEL);
+  dma_channel_write_config(DMA_TX_CHANNEL_NUM, &dmach_conf);
 }
 
-void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback) {
-  interrupt_callback = callback;
-}
+static void config_dma_rx(void) {
 
-void nrf24l01p_read_register(uint8_t address, uint8_t *reg_value) {
-  spi_startframe();
-  usart_spi_write_single(SPI_CNTL, SPICMD_R_REGISTER(address));
-  usart_spi_read_single(SPI_CNTL, reg_value);
-  spi_endframe();
-}
-
-void nrf24l01p_write_register(uint8_t address, uint8_t new_value) {
-  spi_startframe();
-  usart_spi_write_single(SPI_CNTL, SPICMD_W_REGISTER(address));
-  usart_spi_write_single(SPI_CNTL, new_value);
-  spi_endframe();
-}
-
-void nrf24l01p_write_register_m(uint8_t address, const uint8_t *new_value, uint8_t value_len) {
-  spi_startframe();
-  usart_spi_write_single(SPI_CNTL, SPICMD_W_REGISTER(address));
-  usart_spi_write_packet(SPI_CNTL, new_value, value_len);
-  spi_endframe();
-}
-
-uint8_t nrf24l01p_write_register_async(uint8_t address, const uint8_t *new_value, uint8_t value_len, nrf24l01p_callback_t callback) {
-  if(is_command_running) {
-    return 1;
-  }
-
-  is_command_running = true;
-  bytes_to_send = new_value;
-  bytes_len = value_len;
-  current_byte_index = 0;
-  current_command_callback = callback;
-
-  usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED);
-
-  spi_startframe();
-  usart_put(SPI_CNTL, SPICMD_W_REGISTER(address));
-
-  return 0;
-}
-
-void inline nrf24l01p_start_operation(void) {
-  ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_HIGH);
-}
-
-void inline nrf24l01p_end_operation(void) {
-  ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_LOW);
-}
-
-void nrf24l01p_data_test(void) {
-  nrf24l01p_write_register(REG_EN_AA, 0x0);
-  nrf24l01p_write_register(REG_SETUP_RETR, 0x0);
-  uint8_t addr[] = {0xcc, 0xff, 0x00, 0xff, 0xcc};
-  nrf24l01p_write_register_m(REG_TX_ADDR, addr, 5);
-  while(1) {
-    uint8_t test_data[32], i;
-    
-    uint8_t n = 0;
-    for(i = 0; i < 32; i++) {
-      test_data[i] = n++;
-    }
-    
-    nrf24l01p_send_payload(test_data, 32);
-    ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_HIGH);
-    _delay_us(30);
-    ioport_set_pin_level(CE_PIN, IOPORT_PIN_LEVEL_LOW);
-  }
 }
 
 static void spi_startframe(void) {
@@ -326,11 +524,14 @@ static void spi_endframe() {
 static void dma_channel_handler(enum dma_channel_status status) {
   spi_endframe();
   // Clear USART FIFO
-  SPI_CNTL_USART.CTRLB &= ~USART_RXEN_bm;
-  SPI_CNTL_USART.CTRLB |= USART_RXEN_bm;
+  usart_get(SPI_CNTL);
+  usart_get(SPI_CNTL);
+  //SPI_CNTL_USART.CTRLB &= ~USART_RXEN_bm;
+  //SPI_CNTL_USART.CTRLB |= USART_RXEN_bm;
 
-  if(dma_callback) {
-    dma_callback();
+  xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+  if(current_function_callback) {
+    current_function_callback();
   }
 };
 
@@ -341,14 +542,46 @@ ISR(PORTC_INT0_vect) {
 }
 
 ISR(USARTC0_TXC_vect) {
+  if(current_byte_index == 0) {
+    // First byte we recive is the status byte
+    local_reg_status = usart_get(SPI_CNTL);
+  }
+  else if(bytes_received != NULL) {
+    // If bytes_received isn't NULL then we should save data
+    bytes_received[current_byte_index - 1] = usart_get(SPI_CNTL);
+  }
+
   if(current_byte_index < bytes_len) {
-    usart_put(SPI_CNTL, bytes_to_send[current_byte_index++]);
+    if(bytes_to_send != NULL) {
+      // If there are bytes to send, send the next one
+      usart_put(SPI_CNTL, bytes_to_send[current_byte_index++]);
+    }
+    else {
+      // Otherwise send dummy data
+      usart_put(SPI_CNTL, 0xFF);
+      current_byte_index++;
+    }
   }
   else {
-    // Transfer complete
-    spi_endframe();
-    if(current_command_callback) {
-      current_command_callback();
+    // End of transfer
+    switch(current_command_type) {
+      case CMD_TYPE_SYNC:
+        spi_endframe();
+        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
+        xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
+        break;
+      case CMD_TYPE_ASYNC:
+        spi_endframe();
+        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
+        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+        if(current_function_callback) {
+          current_function_callback();
+        }
+        break;
+      case CMD_TYPE_DMA:
+        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
+        dma_channel_enable(DMA_TX_CHANNEL_NUM);
+        break;
     }
   }
 }
