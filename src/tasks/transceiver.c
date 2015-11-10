@@ -202,7 +202,7 @@ static void dma_xfer_complete_handler(void) {
       if(++fifo_fill_depth < 3) {
         downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
         if(packet != NULL) {
-          //nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
+          nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
         }
       }
       break;
