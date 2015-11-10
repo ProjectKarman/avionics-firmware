@@ -432,10 +432,9 @@ static void inline read_register_single(uint8_t address, uint8_t *reg_value) {
 }
 
 static void read_register(uint8_t address, uint8_t *reg_value, uint8_t value_len) {
-  bytes_received = pvPortMalloc(sizeof(uint8_t) * value_len);
+  bytes_received = reg_value;
   send_command(SPICMD_R_REGISTER(address), NULL, value_len);
-  *reg_value = *bytes_received;
-  vPortFree(bytes_received);
+  bytes_received = NULL;
 }
 
 static void inline write_register_single(uint8_t address, uint8_t new_value) {
@@ -531,22 +530,27 @@ ISR(PORTC_INT0_vect) {
 
 ISR(USARTC0_TXC_vect) {
   if(current_byte_index == 0) {
+    // First byte we recive is the status byte
     local_reg_status = usart_get(SPI_CNTL);
   }
   else if(bytes_received != NULL) {
-    bytes_received[current_byte_index - 1] = usart_get(SPI_CNTL); // Save the bytes to our buffer
+    // If bytes_received isn't NULL then we should save data
+    bytes_received[current_byte_index - 1] = usart_get(SPI_CNTL);
   }
 
   if(current_byte_index < bytes_len) {
     if(bytes_to_send != NULL) {
+      // If there are bytes to send, send the next one
       usart_put(SPI_CNTL, bytes_to_send[current_byte_index++]);
     }
     else {
+      // Otherwise send dummy data
       usart_put(SPI_CNTL, 0xFF);
       current_byte_index++;
     }
   }
   else {
+    // End of transfer
     switch(current_command_type) {
       case CMD_TYPE_SYNC:
         spi_endframe();

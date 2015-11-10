@@ -44,6 +44,7 @@ typedef struct {
 
 static void transceiver_task_loop(void *p);
 static void init_nrf24l01p(void);
+static void init_timer(void);
 static void add_priority_event(enum transceiver_event_type event_type, void *data);
 static void prepare_transmit_frame(void);
 static void add_message_to_frame(transceiver_message_t *new_message);
@@ -67,18 +68,6 @@ static downlink_frame_t *frame_to_send;
 void transceiver_start_task(void) {
   xTaskCreate(transceiver_task_loop, "transceiver", 200, NULL, 2, &transceiver_task_handle);
   event_queue = xQueueCreate(EVENT_QUEUE_DEPTH, sizeof(transceiver_event_t));
-
-  // Configure timer to generate frame phase interrupts
-  tc_enable(&PROTOCOL_TIMER);
-  tc_set_wgm(&PROTOCOL_TIMER, TC_WG_NORMAL);
-  tc_write_period(&PROTOCOL_TIMER, F_CPU / (4 * PROTOCOL_FRAME_RATE));
-  tc_write_cc(&PROTOCOL_TIMER, TC_CCA, 24000); // TODO: Come up with a general eqn
-  tc_enable_cc_channels(&PROTOCOL_TIMER, TC_CCAEN);
-  tc_set_overflow_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_overflow_handler);
-  tc_set_overflow_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
-  tc_set_cca_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_cc_match_handler);
-  tc_set_cca_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
-  tc_write_clock_source(&PROTOCOL_TIMER, TC_CLKSEL_DIV4_gc);
 }
 
 void transceiver_send_message(transceiver_message_t *message, TickType_t ticks_to_wait) {
@@ -104,6 +93,7 @@ void transceiver_message_destroy(transceiver_message_t *message) {
 
 static void transceiver_task_loop(void *p) {
   init_nrf24l01p(); 
+  init_timer();
 
   currently_building_frame = downlink_frame_create();
 
@@ -139,6 +129,20 @@ static void init_nrf24l01p(void) {
   nrf24l01p_set_autoack_mask(0x0);
   nrf24l01p_set_retransmission(0, 0);
   nrf24l01p_set_interrupt_pin_handler(nrf24l01p_interrupt_handler);
+}
+
+static void init_timer(void) {
+  // Configure timer to generate frame phase interrupts
+  tc_enable(&PROTOCOL_TIMER);
+  tc_set_wgm(&PROTOCOL_TIMER, TC_WG_NORMAL);
+  tc_write_period(&PROTOCOL_TIMER, F_CPU / (4 * PROTOCOL_FRAME_RATE));
+  tc_write_cc(&PROTOCOL_TIMER, TC_CCA, 24000); // TODO: Come up with a general eqn
+  tc_enable_cc_channels(&PROTOCOL_TIMER, TC_CCAEN);
+  tc_set_overflow_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_overflow_handler);
+  tc_set_overflow_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
+  tc_set_cca_interrupt_callback(&PROTOCOL_TIMER, protocol_timer_cc_match_handler);
+  tc_set_cca_interrupt_level(&PROTOCOL_TIMER, TC_INT_LVL_MED);
+  tc_write_clock_source(&PROTOCOL_TIMER, TC_CLKSEL_DIV4_gc);
 }
 
 static inline void add_priority_event(enum transceiver_event_type event_type, void *data) {
