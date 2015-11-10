@@ -574,7 +574,7 @@ ISR(PORTC_INT0_vect) {
 
 ISR(USARTC0_TXC_vect) {
   if(current_byte_index == 0) {
-    // First byte we recive is the status byte
+    // First byte we receive is the status byte
     local_reg_status = usart_get(SPI_CNTL);
   }
   else if(bytes_received != NULL) {

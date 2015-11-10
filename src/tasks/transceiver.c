@@ -62,8 +62,10 @@ TaskHandle_t transceiver_task_handle;
 static QueueHandle_t event_queue;
 static volatile enum transeiver_state state;
 static volatile uint8_t fifo_fill_depth;
+static volatile bool is_interrupt_reset_defered;
 static downlink_frame_t *currently_building_frame;
 static downlink_frame_t *frame_to_send;
+
 
 void transceiver_start_task(void) {
   xTaskCreate(transceiver_task_loop, "transceiver", 200, NULL, 2, &transceiver_task_handle);
@@ -125,6 +127,7 @@ static void transceiver_task_loop(void *p) {
         message2->type = TRANSCEIVER_MSG_TYPE_GENERAL;
         message2->data = content2;
 
+        /*
         general_message_t *content3 = general_message_create();
         content3->text = "Hello World!";
         content3->len = strlen(content3->text);
@@ -133,9 +136,19 @@ static void transceiver_task_loop(void *p) {
         message3->type = TRANSCEIVER_MSG_TYPE_GENERAL;
         message3->data = content3;
 
+        general_message_t *content4 = general_message_create();
+        content4->text = "Hello World!";
+        content4->len = strlen(content4->text);
+
+        transceiver_message_t *message4 = transceiver_message_create();
+        message4->type = TRANSCEIVER_MSG_TYPE_GENERAL;
+        message4->data = content4;
+        */
+
         transceiver_send_message(message1, 0);
         transceiver_send_message(message2, 0);
-        transceiver_send_message(message3, 0);
+        //transceiver_send_message(message3, 0);
+        //transceiver_send_message(message4, 0);
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_PREPARE:
         prepare_transmit_frame();
@@ -238,7 +251,11 @@ static void dma_xfer_complete_handler(void) {
       break;
     case TRANSCEIVER_STATE_TRANSMITTING:
       // DMA Payload transfer just completed
-      fifo_fill_depth++;      
+      fifo_fill_depth++;
+      if(is_interrupt_reset_defered) {
+        nrf24l01p_reset_interrupts_async_from_isr(nrf24l01p_reset_interrupt_handler);
+        is_interrupt_reset_defered = false;
+      }
       break;
     case TRANSCEIVER_STATE_RECEIVING:
       break;
@@ -248,7 +265,10 @@ static void dma_xfer_complete_handler(void) {
 }
 
 static void nrf24l01p_interrupt_handler(void) {
-  nrf24l01p_reset_interrupts_async_from_isr(nrf24l01p_reset_interrupt_handler);
+  if(nrf24l01p_reset_interrupts_async_from_isr(nrf24l01p_reset_interrupt_handler)) {
+    // We were blocked from this function... probably because payload transfer was occuring, lets defer this action
+    is_interrupt_reset_defered = true;
+  }
 }
 
 static void nrf24l01p_reset_interrupt_handler(void) {
