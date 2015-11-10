@@ -108,6 +108,34 @@ static void transceiver_task_loop(void *p) {
       case TRANSCEIVER_EVENT_TX_FRAME_COMPLETE:
         downlink_frame_destory(frame_to_send);
         state = TRANSCEIVER_STATE_IDLE;
+
+        general_message_t *content1 = general_message_create();
+        content1->text = "Hello World!";
+        content1->len = strlen(content1->text);
+
+        transceiver_message_t *message1 = transceiver_message_create();
+        message1->type = TRANSCEIVER_MSG_TYPE_GENERAL;
+        message1->data = content1;
+
+        general_message_t *content2 = general_message_create();
+        content2->text = "Hello World!";
+        content2->len = strlen(content2->text);
+
+        transceiver_message_t *message2 = transceiver_message_create();
+        message2->type = TRANSCEIVER_MSG_TYPE_GENERAL;
+        message2->data = content2;
+
+        general_message_t *content3 = general_message_create();
+        content3->text = "Hello World!";
+        content3->len = strlen(content3->text);
+
+        transceiver_message_t *message3 = transceiver_message_create();
+        message3->type = TRANSCEIVER_MSG_TYPE_GENERAL;
+        message3->data = content3;
+
+        transceiver_send_message(message1, 0);
+        transceiver_send_message(message2, 0);
+        transceiver_send_message(message3, 0);
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_PREPARE:
         prepare_transmit_frame();
@@ -119,7 +147,7 @@ static void transceiver_task_loop(void *p) {
 static void init_nrf24l01p(void) {
   char *address = "W1KBN";
 
-  nrf24l01p_read_regs();
+  //nrf24l01p_read_regs();
   nrf24l01p_wake();
   nrf24l01p_flush_rx_fifo();
   nrf24l01p_flush_tx_fifo();
@@ -170,6 +198,7 @@ static void add_message_to_frame(transceiver_message_t *new_message) {
   switch(new_message->type) {
     case TRANSCEIVER_MSG_TYPE_GENERAL:
       downlink_frame_add_packet(currently_building_frame ,general_message_to_packet((general_message_t *)new_message->data));
+      transceiver_message_destroy(new_message);
       break;
   }
   
@@ -199,7 +228,8 @@ static downlink_packet_t *general_message_to_packet(general_message_t *message) 
 static void dma_xfer_complete_handler(void) {
   switch(state) {
     case TRANSCEIVER_STATE_PREPARING:
-      if(++fifo_fill_depth < 3) {
+      fifo_fill_depth++;
+      if(fifo_fill_depth < 3) {
         downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
         if(packet != NULL) {
           nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);

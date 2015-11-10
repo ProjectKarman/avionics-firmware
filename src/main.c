@@ -34,6 +34,8 @@ void blink2(void *p) {
 
 void gen_test_packets(void *p) {
   for(;;) {
+    uint16_t size = xPortGetFreeHeapSize();
+
     general_message_t *content1 = general_message_create();
     content1->text = "Hello World!";
     content1->len = strlen(content1->text);
@@ -76,7 +78,7 @@ int main(void)
 	// start tasks
 	xTaskCreate(blink1, "blink1", 1024, NULL, 2, NULL);
 	xTaskCreate(blink2, "blink2", 1024, NULL, 2, NULL);
-  xTaskCreate(gen_test_packets, "test data", 1024, NULL, 2, NULL);
+  //xTaskCreate(gen_test_packets, "test data", 1024, NULL, 2, NULL);
   transceiver_start_task();
 
 	vTaskStartScheduler();

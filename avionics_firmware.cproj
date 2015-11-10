@@ -151,58 +151,58 @@
       <ToolName>Atmel-ICE</ToolName>
     </com_atmel_avrdbg_tool_atmelice>
     <PercepioTrace>
-      <TargetOS xmlns="">FreeRTOS</TargetOS>
-      <Frequency xmlns="">64000000</Frequency>
-      <EnableTraceInterrupts xmlns="">False</EnableTraceInterrupts>
-      <EnableNonintrusive xmlns="">True</EnableNonintrusive>
-      <EnableTargetOS xmlns="">True</EnableTargetOS>
-      <EnableApplicationOutput xmlns="">True</EnableApplicationOutput>
-      <EnableDataWatchPoints xmlns="">True</EnableDataWatchPoints>
-      <EnablePC xmlns="">False</EnablePC>
-      <EnablePCPolled xmlns="">False</EnablePCPolled>
-      <PolledFrequency xmlns="">1000</PolledFrequency>
-      <EnableMcu xmlns="">False</EnableMcu>
-      <EnableOsAwareness xmlns="">False</EnableOsAwareness>
-      <HWApplicationOutput xmlns="">False</HWApplicationOutput>
-      <HWInterrupt xmlns="">False</HWInterrupt>
-      <HWIntrusiveDataWatch xmlns="">True</HWIntrusiveDataWatch>
-      <HWNonintrusiveDataWatch xmlns="">False</HWNonintrusiveDataWatch>
-      <HWPolledDataWatch xmlns="">False</HWPolledDataWatch>
-      <HWPolledProgramCounterSampling xmlns="">False</HWPolledProgramCounterSampling>
-      <HWProfiling xmlns="">False</HWProfiling>
-      <HWProgramCounterSampling xmlns="">False</HWProgramCounterSampling>
-      <ApplicationOutput0 xmlns="">String</ApplicationOutput0>
-      <ApplicationOutput1 xmlns="">String</ApplicationOutput1>
-      <ApplicationOutput2 xmlns="">String</ApplicationOutput2>
-      <ApplicationOutput3 xmlns="">String</ApplicationOutput3>
-      <ApplicationOutput4 xmlns="">String</ApplicationOutput4>
-      <ApplicationOutput5 xmlns="">String</ApplicationOutput5>
-      <ApplicationOutput6 xmlns="">String</ApplicationOutput6>
-      <ApplicationOutput7 xmlns="">String</ApplicationOutput7>
-      <ApplicationOutput8 xmlns="">String</ApplicationOutput8>
-      <ApplicationOutput9 xmlns="">String</ApplicationOutput9>
-      <ApplicationOutput10 xmlns="">String</ApplicationOutput10>
-      <ApplicationOutput11 xmlns="">String</ApplicationOutput11>
-      <ApplicationOutput12 xmlns="">String</ApplicationOutput12>
-      <ApplicationOutput13 xmlns="">String</ApplicationOutput13>
-      <ApplicationOutput14 xmlns="">String</ApplicationOutput14>
-      <ApplicationOutput15 xmlns="">String</ApplicationOutput15>
-      <ApplicationOutput16 xmlns="">String</ApplicationOutput16>
-      <ApplicationOutput17 xmlns="">String</ApplicationOutput17>
-      <ApplicationOutput18 xmlns="">String</ApplicationOutput18>
-      <ApplicationOutput19 xmlns="">String</ApplicationOutput19>
-      <ApplicationOutput20 xmlns="">String</ApplicationOutput20>
-      <ApplicationOutput21 xmlns="">String</ApplicationOutput21>
-      <ApplicationOutput22 xmlns="">String</ApplicationOutput22>
-      <ApplicationOutput23 xmlns="">String</ApplicationOutput23>
-      <ApplicationOutput24 xmlns="">String</ApplicationOutput24>
-      <ApplicationOutput25 xmlns="">String</ApplicationOutput25>
-      <ApplicationOutput26 xmlns="">String</ApplicationOutput26>
-      <ApplicationOutput27 xmlns="">String</ApplicationOutput27>
-      <ApplicationOutput28 xmlns="">String</ApplicationOutput28>
-      <ApplicationOutput29 xmlns="">String</ApplicationOutput29>
-      <ApplicationOutput30 xmlns="">String</ApplicationOutput30>
-      <ApplicationOutput31 xmlns="">String</ApplicationOutput31>
+      <TargetOS>FreeRTOSv8</TargetOS>
+      <Frequency>32000000</Frequency>
+      <EnableTraceInterrupts>True</EnableTraceInterrupts>
+      <EnableNonintrusive>False</EnableNonintrusive>
+      <EnableTargetOS>True</EnableTargetOS>
+      <EnableApplicationOutput>False</EnableApplicationOutput>
+      <EnableDataWatchPoints>False</EnableDataWatchPoints>
+      <EnablePC>False</EnablePC>
+      <EnablePCPolled>False</EnablePCPolled>
+      <PolledFrequency>1000</PolledFrequency>
+      <EnableMcu>False</EnableMcu>
+      <EnableOsAwareness>True</EnableOsAwareness>
+      <HWApplicationOutput>False</HWApplicationOutput>
+      <HWInterrupt>False</HWInterrupt>
+      <HWIntrusiveDataWatch>True</HWIntrusiveDataWatch>
+      <HWNonintrusiveDataWatch>False</HWNonintrusiveDataWatch>
+      <HWPolledDataWatch>False</HWPolledDataWatch>
+      <HWPolledProgramCounterSampling>False</HWPolledProgramCounterSampling>
+      <HWProfiling>False</HWProfiling>
+      <HWProgramCounterSampling>False</HWProgramCounterSampling>
+      <ApplicationOutput0>String</ApplicationOutput0>
+      <ApplicationOutput1>String</ApplicationOutput1>
+      <ApplicationOutput2>String</ApplicationOutput2>
+      <ApplicationOutput3>String</ApplicationOutput3>
+      <ApplicationOutput4>String</ApplicationOutput4>
+      <ApplicationOutput5>String</ApplicationOutput5>
+      <ApplicationOutput6>String</ApplicationOutput6>
+      <ApplicationOutput7>String</ApplicationOutput7>
+      <ApplicationOutput8>String</ApplicationOutput8>
+      <ApplicationOutput9>String</ApplicationOutput9>
+      <ApplicationOutput10>String</ApplicationOutput10>
+      <ApplicationOutput11>String</ApplicationOutput11>
+      <ApplicationOutput12>String</ApplicationOutput12>
+      <ApplicationOutput13>String</ApplicationOutput13>
+      <ApplicationOutput14>String</ApplicationOutput14>
+      <ApplicationOutput15>String</ApplicationOutput15>
+      <ApplicationOutput16>String</ApplicationOutput16>
+      <ApplicationOutput17>String</ApplicationOutput17>
+      <ApplicationOutput18>String</ApplicationOutput18>
+      <ApplicationOutput19>String</ApplicationOutput19>
+      <ApplicationOutput20>String</ApplicationOutput20>
+      <ApplicationOutput21>String</ApplicationOutput21>
+      <ApplicationOutput22>String</ApplicationOutput22>
+      <ApplicationOutput23>String</ApplicationOutput23>
+      <ApplicationOutput24>String</ApplicationOutput24>
+      <ApplicationOutput25>String</ApplicationOutput25>
+      <ApplicationOutput26>String</ApplicationOutput26>
+      <ApplicationOutput27>String</ApplicationOutput27>
+      <ApplicationOutput28>String</ApplicationOutput28>
+      <ApplicationOutput29>String</ApplicationOutput29>
+      <ApplicationOutput30>String</ApplicationOutput30>
+      <ApplicationOutput31>String</ApplicationOutput31>
     </PercepioTrace>
     <com_atmel_avrdbg_tool_simulator>
       <ToolOptions xmlns="">
@@ -219,102 +219,102 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>
       <AvrGcc>
-  <avrgcc.common.optimization.RelaxBranches>True</avrgcc.common.optimization.RelaxBranches>
-  <avrgcc.common.outputfiles.hex>True</avrgcc.common.outputfiles.hex>
-  <avrgcc.common.outputfiles.lss>True</avrgcc.common.outputfiles.lss>
-  <avrgcc.common.outputfiles.eep>True</avrgcc.common.outputfiles.eep>
-  <avrgcc.common.outputfiles.srec>True</avrgcc.common.outputfiles.srec>
-  <avrgcc.common.outputfiles.usersignatures>False</avrgcc.common.outputfiles.usersignatures>
-  <avrgcc.compiler.symbols.DefSymbols>
-    <ListValues>
-      <Value>NDEBUG</Value>
-      <Value>BOARD=USER_BOARD</Value>
-      <Value>IOPORT_XMEGA_COMPAT</Value>
-    </ListValues>
-  </avrgcc.compiler.symbols.DefSymbols>
-  <avrgcc.compiler.directories.IncludePaths>
-    <ListValues>
-      <Value>../src/Config</Value>
-      <Value>../common/applications/user_application/user_board/config</Value>
-      <Value>../src</Value>
-      <Value>../src/ASF/common/boards/user_board</Value>
-      <Value>../src/ASF/xmega/drivers/cpu</Value>
-      <Value>../src/ASF/xmega/drivers/nvm</Value>
-      <Value>../src/ASF/common/services/clock</Value>
-      <Value>../src/ASF/common/utils</Value>
-      <Value>../src/ASF/xmega/utils/preprocessor</Value>
-      <Value>../src/ASF/xmega/utils</Value>
-      <Value>../src/ASF/common/boards</Value>
-      <Value>../src/ASF/xmega/drivers/ac</Value>
-      <Value>../src/ASF/xmega/drivers/pmic</Value>
-      <Value>../src/ASF/xmega/drivers/sleep</Value>
-      <Value>../src/ASF/common/services/sleepmgr</Value>
-      <Value>../src/ASF/common/services/ioport</Value>
-      <Value>../src/ASF/xmega/drivers/tc</Value>
-      <Value>../src/ASF/common/services/hugemem</Value>
-      <Value>../src/ASF/xmega/drivers/dma</Value>
-      <Value>../src/ASF/xmega/drivers/wdt</Value>
-      <Value>../src/ASF/common/services/gpio</Value>
-      <Value>../src/ASF/common/services/serial/xmega_usart</Value>
-      <Value>../src/ASF/common/services/serial</Value>
-      <Value>../src/ASF/xmega/drivers/usart</Value>
-      <Value>../src/ASF/xmega/drivers/spi</Value>
-      <Value>../src/ASF/common/services/spi/xmega_spi</Value>
-      <Value>../src/ASF/common/services/spi</Value>
-      <Value>../src/drivers</Value>
-      <Value>../src/tasks</Value>
-      <Value>../src/freertos</Value>
-      <Value>../src/freertos/source/include</Value>
-      <Value>../src/freertos/port</Value>
-      <Value>../src/freertos/source</Value>
-      <Value>../src/util</Value>
-    </ListValues>
-  </avrgcc.compiler.directories.IncludePaths>
-  <avrgcc.compiler.optimization.level>Optimize for size (-Os)</avrgcc.compiler.optimization.level>
-  <avrgcc.compiler.optimization.OtherFlags>-fdata-sections</avrgcc.compiler.optimization.OtherFlags>
-  <avrgcc.compiler.optimization.PackStructureMembers>True</avrgcc.compiler.optimization.PackStructureMembers>
-  <avrgcc.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcc.compiler.optimization.AllocateBytesNeededForEnum>
-  <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
-  <avrgcc.compiler.miscellaneous.OtherFlags>-std=gnu99 -fno-strict-aliasing -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -mrelax</avrgcc.compiler.miscellaneous.OtherFlags>
-  <avrgcc.linker.libraries.Libraries>
-    <ListValues>
-      <Value>libm</Value>
-    </ListValues>
-  </avrgcc.linker.libraries.Libraries>
-  <avrgcc.linker.miscellaneous.LinkerFlags>-Wl,--relax</avrgcc.linker.miscellaneous.LinkerFlags>
-  <avrgcc.assembler.general.AssemblerFlags>-mrelax -DBOARD=USER_BOARD</avrgcc.assembler.general.AssemblerFlags>
-  <avrgcc.assembler.general.IncludePaths>
-    <ListValues>
-      <Value>../src/Config</Value>
-      <Value>../common/applications/user_application/user_board/config</Value>
-      <Value>../src</Value>
-      <Value>../src/ASF/common/boards/user_board</Value>
-      <Value>../src/ASF/xmega/drivers/cpu</Value>
-      <Value>../src/ASF/xmega/drivers/nvm</Value>
-      <Value>../src/ASF/common/services/clock</Value>
-      <Value>../src/ASF/common/utils</Value>
-      <Value>../src/ASF/xmega/utils/preprocessor</Value>
-      <Value>../src/ASF/xmega/utils</Value>
-      <Value>../src/ASF/common/boards</Value>
-      <Value>../src/ASF/xmega/drivers/ac</Value>
-      <Value>../src/ASF/xmega/drivers/pmic</Value>
-      <Value>../src/ASF/xmega/drivers/sleep</Value>
-      <Value>../src/ASF/common/services/sleepmgr</Value>
-      <Value>../src/ASF/common/services/ioport</Value>
-      <Value>../src/ASF/xmega/drivers/tc</Value>
-      <Value>../src/ASF/common/services/hugemem</Value>
-      <Value>../src/ASF/xmega/drivers/dma</Value>
-      <Value>../src/ASF/xmega/drivers/wdt</Value>
-      <Value>../src/ASF/common/services/gpio</Value>
-      <Value>../src/ASF/common/services/serial/xmega_usart</Value>
-      <Value>../src/ASF/common/services/serial</Value>
-      <Value>../src/ASF/xmega/drivers/usart</Value>
-      <Value>../src/ASF/xmega/drivers/spi</Value>
-      <Value>../src/ASF/common/services/spi/xmega_spi</Value>
-      <Value>../src/ASF/common/services/spi</Value>
-    </ListValues>
-  </avrgcc.assembler.general.IncludePaths>
-</AvrGcc>
+        <avrgcc.common.optimization.RelaxBranches>True</avrgcc.common.optimization.RelaxBranches>
+        <avrgcc.common.outputfiles.hex>True</avrgcc.common.outputfiles.hex>
+        <avrgcc.common.outputfiles.lss>True</avrgcc.common.outputfiles.lss>
+        <avrgcc.common.outputfiles.eep>True</avrgcc.common.outputfiles.eep>
+        <avrgcc.common.outputfiles.srec>True</avrgcc.common.outputfiles.srec>
+        <avrgcc.common.outputfiles.usersignatures>False</avrgcc.common.outputfiles.usersignatures>
+        <avrgcc.compiler.symbols.DefSymbols>
+          <ListValues>
+            <Value>NDEBUG</Value>
+            <Value>BOARD=USER_BOARD</Value>
+            <Value>IOPORT_XMEGA_COMPAT</Value>
+          </ListValues>
+        </avrgcc.compiler.symbols.DefSymbols>
+        <avrgcc.compiler.directories.IncludePaths>
+          <ListValues>
+            <Value>../src/Config</Value>
+            <Value>../common/applications/user_application/user_board/config</Value>
+            <Value>../src</Value>
+            <Value>../src/ASF/common/boards/user_board</Value>
+            <Value>../src/ASF/xmega/drivers/cpu</Value>
+            <Value>../src/ASF/xmega/drivers/nvm</Value>
+            <Value>../src/ASF/common/services/clock</Value>
+            <Value>../src/ASF/common/utils</Value>
+            <Value>../src/ASF/xmega/utils/preprocessor</Value>
+            <Value>../src/ASF/xmega/utils</Value>
+            <Value>../src/ASF/common/boards</Value>
+            <Value>../src/ASF/xmega/drivers/ac</Value>
+            <Value>../src/ASF/xmega/drivers/pmic</Value>
+            <Value>../src/ASF/xmega/drivers/sleep</Value>
+            <Value>../src/ASF/common/services/sleepmgr</Value>
+            <Value>../src/ASF/common/services/ioport</Value>
+            <Value>../src/ASF/xmega/drivers/tc</Value>
+            <Value>../src/ASF/common/services/hugemem</Value>
+            <Value>../src/ASF/xmega/drivers/dma</Value>
+            <Value>../src/ASF/xmega/drivers/wdt</Value>
+            <Value>../src/ASF/common/services/gpio</Value>
+            <Value>../src/ASF/common/services/serial/xmega_usart</Value>
+            <Value>../src/ASF/common/services/serial</Value>
+            <Value>../src/ASF/xmega/drivers/usart</Value>
+            <Value>../src/ASF/xmega/drivers/spi</Value>
+            <Value>../src/ASF/common/services/spi/xmega_spi</Value>
+            <Value>../src/ASF/common/services/spi</Value>
+            <Value>../src/drivers</Value>
+            <Value>../src/tasks</Value>
+            <Value>../src/freertos</Value>
+            <Value>../src/freertos/source/include</Value>
+            <Value>../src/freertos/port</Value>
+            <Value>../src/freertos/source</Value>
+            <Value>../src/util</Value>
+          </ListValues>
+        </avrgcc.compiler.directories.IncludePaths>
+        <avrgcc.compiler.optimization.level>Optimize for size (-Os)</avrgcc.compiler.optimization.level>
+        <avrgcc.compiler.optimization.OtherFlags>-fdata-sections</avrgcc.compiler.optimization.OtherFlags>
+        <avrgcc.compiler.optimization.PackStructureMembers>True</avrgcc.compiler.optimization.PackStructureMembers>
+        <avrgcc.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcc.compiler.optimization.AllocateBytesNeededForEnum>
+        <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
+        <avrgcc.compiler.miscellaneous.OtherFlags>-std=gnu99 -fno-strict-aliasing -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -mrelax</avrgcc.compiler.miscellaneous.OtherFlags>
+        <avrgcc.linker.libraries.Libraries>
+          <ListValues>
+            <Value>libm</Value>
+          </ListValues>
+        </avrgcc.linker.libraries.Libraries>
+        <avrgcc.linker.miscellaneous.LinkerFlags>-Wl,--relax</avrgcc.linker.miscellaneous.LinkerFlags>
+        <avrgcc.assembler.general.AssemblerFlags>-mrelax -DBOARD=USER_BOARD</avrgcc.assembler.general.AssemblerFlags>
+        <avrgcc.assembler.general.IncludePaths>
+          <ListValues>
+            <Value>../src/Config</Value>
+            <Value>../common/applications/user_application/user_board/config</Value>
+            <Value>../src</Value>
+            <Value>../src/ASF/common/boards/user_board</Value>
+            <Value>../src/ASF/xmega/drivers/cpu</Value>
+            <Value>../src/ASF/xmega/drivers/nvm</Value>
+            <Value>../src/ASF/common/services/clock</Value>
+            <Value>../src/ASF/common/utils</Value>
+            <Value>../src/ASF/xmega/utils/preprocessor</Value>
+            <Value>../src/ASF/xmega/utils</Value>
+            <Value>../src/ASF/common/boards</Value>
+            <Value>../src/ASF/xmega/drivers/ac</Value>
+            <Value>../src/ASF/xmega/drivers/pmic</Value>
+            <Value>../src/ASF/xmega/drivers/sleep</Value>
+            <Value>../src/ASF/common/services/sleepmgr</Value>
+            <Value>../src/ASF/common/services/ioport</Value>
+            <Value>../src/ASF/xmega/drivers/tc</Value>
+            <Value>../src/ASF/common/services/hugemem</Value>
+            <Value>../src/ASF/xmega/drivers/dma</Value>
+            <Value>../src/ASF/xmega/drivers/wdt</Value>
+            <Value>../src/ASF/common/services/gpio</Value>
+            <Value>../src/ASF/common/services/serial/xmega_usart</Value>
+            <Value>../src/ASF/common/services/serial</Value>
+            <Value>../src/ASF/xmega/drivers/usart</Value>
+            <Value>../src/ASF/xmega/drivers/spi</Value>
+            <Value>../src/ASF/common/services/spi/xmega_spi</Value>
+            <Value>../src/ASF/common/services/spi</Value>
+          </ListValues>
+        </avrgcc.assembler.general.IncludePaths>
+      </AvrGcc>
     </ToolchainSettings>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">

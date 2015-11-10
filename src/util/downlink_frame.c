@@ -50,7 +50,7 @@ void downlink_frame_add_packet(downlink_frame_t *frame, downlink_packet_t *packe
   }
   else {
     frame->data_section_tail->next_packet = packet;
-    frame->data_section_tail = frame->data_section_tail;
+    frame->data_section_tail = frame->data_section_tail->next_packet;
   }
 }
 

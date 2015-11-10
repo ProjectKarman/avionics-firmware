@@ -100,10 +100,10 @@ static void config_dma_rx(void);
 
 
 // Driver Variables
-static uint8_t local_reg_config;
-static uint8_t local_reg_rf_setup;
-static uint8_t local_reg_en_aa;
-static uint8_t local_reg_setup_retr;
+static uint8_t local_reg_config = 0;
+static uint8_t local_reg_rf_setup = 0;
+static uint8_t local_reg_en_aa = 0;
+static uint8_t local_reg_setup_retr = 0;
 static volatile uint8_t local_reg_status;
 static nrf24l01p_callback_t interrupt_callback;
 static nrf24l01p_callback_t current_function_callback;
@@ -133,7 +133,7 @@ void nrf24l01p_init(void) {
     .id = SPI_CS_PIN
   };
   usart_spi_init(SPI_CNTL);
-  usart_spi_setup_device(SPI_CNTL, &spi_conf, SPI_MODE_0, 8000000, 0);
+  usart_spi_setup_device(SPI_CNTL, &spi_conf, SPI_MODE_0, 10000000, 0);
   spi_endframe();
 
   // OS Level Structures
