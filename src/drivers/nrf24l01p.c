@@ -147,6 +147,8 @@ uint8_t nrf24l01p_read_regs(void)
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     read_register_single(REG_CONFIG, &local_reg_config);
     read_register_single(REG_RF_SETUP, &local_reg_rf_setup);
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -173,6 +175,7 @@ uint8_t nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr)
         break;
     }
     write_register_single(REG_RF_SETUP, local_reg_rf_setup);
+    xSemaphoreGive(command_running_semaphore);
 
     return 0;
   }
@@ -194,7 +197,8 @@ uint8_t nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode)
   	    break;
     }
     write_register_single(REG_CONFIG, local_reg_config);
-    
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -224,7 +228,8 @@ uint8_t nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr)
         break;
     }
     write_register_single(REG_RF_SETUP, local_reg_rf_setup);
-    
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -246,7 +251,8 @@ uint8_t nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask)
       local_reg_config |= CONFIG_MASK_MAX_RT;
     }
     write_register_single(REG_CONFIG, local_reg_config);
-    
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -258,7 +264,8 @@ uint8_t nrf24l01p_reset_interrupts(void)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     write_register_single(REG_STATUS, STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS);
-    
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -270,7 +277,7 @@ uint8_t nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     write_register_single_async(REG_STATUS, STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS, callback);
-    
+
     return 0;
   }
   else {
@@ -282,7 +289,8 @@ uint8_t nrf24l01p_set_channel(uint8_t channel_num)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     write_register_single(REG_RF_CH, channel_num);
-    
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -296,7 +304,8 @@ uint8_t nrf24l01p_wake(void)
     local_reg_config |= CONFIG_PWR_UP;
     write_register_single(REG_CONFIG, local_reg_config);
     vTaskDelay(2); // Delay per datasheet
-    
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -309,7 +318,8 @@ uint8_t nrf24l01p_sleep(void)
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     local_reg_config &= ~CONFIG_PWR_UP;
     write_register_single(REG_CONFIG, local_reg_config);
-    
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -320,7 +330,8 @@ uint8_t nrf24l01p_sleep(void)
 uint8_t nrf24l01p_flush_tx_fifo(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     send_command(SPICMD_FLUSH_TX, NULL, 0);
-    
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -331,7 +342,8 @@ uint8_t nrf24l01p_flush_tx_fifo(void) {
 uint8_t nrf24l01p_flush_rx_fifo(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     send_command(SPICMD_FLUSH_RX, NULL, 0);
-  
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -342,7 +354,8 @@ uint8_t nrf24l01p_flush_rx_fifo(void) {
 uint8_t nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     send_command(SPICMD_W_TX_PAYLOAD, data, data_len);
-  
+    xSemaphoreGive(command_running_semaphore);
+
     return 0;
   }
   else {
@@ -419,7 +432,6 @@ static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len)
   spi_startframe();
   usart_put(SPI_CNTL, command); // Write out command
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
-  xSemaphoreGive(command_running_semaphore);
   // SPI Frame is ended in the USART ISR
 }
 
