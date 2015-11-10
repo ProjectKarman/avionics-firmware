@@ -21,7 +21,7 @@
 
 #define PACKET_BYTES 20
 
-#define EVENT_QUEUE_DEPTH 10
+#define EVENT_QUEUE_DEPTH 5
 
 enum transeiver_state {
   TRANSCEIVER_STATE_IDLE,
@@ -117,6 +117,8 @@ static void transceiver_task_loop(void *p) {
 }
 
 static void init_nrf24l01p(void) {
+  char *address = "W1KBN";
+
   nrf24l01p_read_regs();
   nrf24l01p_wake();
   nrf24l01p_flush_rx_fifo();
@@ -126,8 +128,9 @@ static void init_nrf24l01p(void) {
   nrf24l01p_set_data_rate(NRF24L01P_DR_2M);
   nrf24l01p_set_pa_power(NRF24L01P_PWR_N18DBM);
   nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_TX_DS | NRF24L01P_INTR_RX_DR);
-  nrf24l01p_set_autoack_mask(0x0);
-  nrf24l01p_set_retransmission(0, 0);
+  //nrf24l01p_set_autoack_mask(0x0);
+  //nrf24l01p_set_retransmission(0, 0);
+  nrf24l01p_set_address((uint8_t *)address, 5);
   nrf24l01p_set_interrupt_pin_handler(nrf24l01p_interrupt_handler);
 }
 
@@ -196,15 +199,16 @@ static downlink_packet_t *general_message_to_packet(general_message_t *message) 
 static void dma_xfer_complete_handler(void) {
   switch(state) {
     case TRANSCEIVER_STATE_PREPARING:
-    case TRANSCEIVER_STATE_TRANSMITTING:
-      // DMA Payload transfer just completed
-      fifo_fill_depth++;
-      if(fifo_fill_depth < 3) {
+      if(++fifo_fill_depth < 3) {
         downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
         if(packet != NULL) {
           //nrf24l01p_send_payload_async(packet->bytes, packet->len, dma_xfer_complete_handler);
         }
       }
+      break;
+    case TRANSCEIVER_STATE_TRANSMITTING:
+      // DMA Payload transfer just completed
+      fifo_fill_depth++;      
       break;
     case TRANSCEIVER_STATE_RECEIVING:
       break;

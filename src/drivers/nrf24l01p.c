@@ -331,6 +331,19 @@ uint8_t nrf24l01p_set_channel(uint8_t channel_num)
   }
 };
 
+uint8_t nrf24l01p_set_address(uint8_t *address, uint8_t address_len)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    write_register(REG_TX_ADDR, address, address_len);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+};
+
 uint8_t nrf24l01p_wake(void)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {

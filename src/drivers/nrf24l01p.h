@@ -54,6 +54,7 @@ uint8_t nrf24l01p_set_interrupt_mask(nrf24l01p_interrupt_mask_t mask);
 uint8_t nrf24l01p_reset_interrupts(void);
 uint8_t nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback);
 uint8_t nrf24l01p_set_channel(uint8_t channel_num);
+uint8_t nrf24l01p_set_address(uint8_t *address, uint8_t address_len);
 uint8_t nrf24l01p_wake(void);
 uint8_t nrf24l01p_sleep(void);
 uint8_t nrf24l01p_flush_tx_fifo(void);
