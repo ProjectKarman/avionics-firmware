@@ -428,9 +428,6 @@
     <Compile Include="src\util\downlink_frame.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="src\util\message_types.c">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="src\util\message_types.h">
       <SubType>compile</SubType>
     </Compile>

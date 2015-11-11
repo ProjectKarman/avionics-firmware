@@ -439,11 +439,10 @@ uint8_t nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
 
 uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    uint8_t *data_start = data - 1; // Correct offset
-    *data_start = SPICMD_W_TX_PAYLOAD;
+    data[0] = SPICMD_W_TX_PAYLOAD;
 
-    DMA.CH0.SRCADDR0 = (((uint16_t)data_start) >> 0*8 ) & 0xff;
-    DMA.CH0.SRCADDR1 = (((uint16_t)data_start) >> 1*8 ) & 0xff;
+    DMA.CH0.SRCADDR0 = (((uint16_t)data) >> 0*8 ) & 0xff;
+    DMA.CH0.SRCADDR1 = (((uint16_t)data) >> 1*8 ) & 0xff;
     DMA.CH0.SRCADDR2 = 0x0;
     DMA.CH0.TRFCNT = data_len + 1;
     
@@ -461,11 +460,10 @@ uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_
 
 uint8_t nrf24l01p_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   if(xSemaphoreTakeFromISR(command_running_semaphore, NULL) == pdTRUE) {
-    uint8_t *data_start = data - 1; // Correct offset
-    *data_start = SPICMD_W_TX_PAYLOAD;
+    data[0] = SPICMD_W_TX_PAYLOAD;
 
-    DMA.CH0.SRCADDR0 = (((uint16_t)data_start) >> 0*8 ) & 0xff;
-    DMA.CH0.SRCADDR1 = (((uint16_t)data_start) >> 1*8 ) & 0xff;
+    DMA.CH0.SRCADDR0 = (((uint16_t)data) >> 0*8 ) & 0xff;
+    DMA.CH0.SRCADDR1 = (((uint16_t)data) >> 1*8 ) & 0xff;
     DMA.CH0.SRCADDR2 = 0x0;
     DMA.CH0.TRFCNT = data_len + 1;
     
@@ -484,9 +482,8 @@ uint8_t nrf24l01p_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, n
 uint8_t nrf24l01p_reset_interrupts_and_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   if(xSemaphoreTakeFromISR(command_running_semaphore, NULL) == pdTRUE) {
     // Setup payload
-    uint8_t *data_start = data - 1; // Correct offset
-    *data_start = SPICMD_W_TX_PAYLOAD;
-    bytes_to_send = data_start;
+    data[0] = SPICMD_W_TX_PAYLOAD;
+    bytes_to_send = data;
     bytes_len = data_len + 1;
 
     // Configure dma for reset

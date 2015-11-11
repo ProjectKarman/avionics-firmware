@@ -11,28 +11,25 @@
 
 #include <stdint.h>
 
+#define PACKET_BYTE_LEN 33 // One extra byte for the DMA command if used
+#define FRAME_MAX_PACKETS 12
+#define FRAME_MAX_SIZE FRAME_MAX_PACKETS + 1 // One packet for the header
+
 typedef struct downlink_packet {
-  uint8_t *bytes;
-  size_t len;
-  struct downlink_packet *next_packet;
+  uint8_t bytes[PACKET_BYTE_LEN];
+  uint8_t len;
 } downlink_packet_t;
 
 typedef struct {
-  downlink_packet_t *header_packet;
-  downlink_packet_t *retransmit_section;
-  downlink_packet_t *data_section;
-  downlink_packet_t *data_section_tail;
-  downlink_packet_t *packet_prt;
+  downlink_packet_t packets[FRAME_MAX_SIZE];
+  downlink_packet_t *write_ptr;
+  downlink_packet_t *read_ptr;
+  uint8_t size;
 } downlink_frame_t;
 
-downlink_packet_t *downlink_packet_create(size_t data_size);
-void downlink_packet_destroy(downlink_packet_t *packet);
-downlink_frame_t *downlink_frame_create(void);
-void downlink_frame_destory(downlink_frame_t *frame);
+void downlink_frame_init(downlink_frame_t *frame);
 void downlink_frame_add_packet(downlink_frame_t *frame, downlink_packet_t *packet);
-void downlink_frame_copy_retransmissions(downlink_frame_t *frame, downlink_packet_t *retransmissions_head);
-void downlink_frame_prepare_for_sending(downlink_frame_t *frame);
-downlink_packet_t *downlink_frame_get_packet(downlink_frame_t *frame);
-
+void downlink_frame_write_header(downlink_frame_t *frame);
+uint8_t downlink_frame_get_next_packet(downlink_frame_t *frame, downlink_packet_t *next_packet);
 
 #endif /* DOWNLINK_FRAME_H_ */

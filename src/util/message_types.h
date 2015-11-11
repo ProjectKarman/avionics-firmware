@@ -12,9 +12,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define MESSAGE_MAX_SIZE 20
+#define GENERAL_MESSAGE_TEXT_MAX_SIZE (MESSAGE_MAX_SIZE - 1)
+
 typedef struct {
-  char *text;
-  size_t len;
+  char text[GENERAL_MESSAGE_TEXT_MAX_SIZE];
+  uint8_t len;
 } general_message_t;
 
 general_message_t *general_message_create(void);

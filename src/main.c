@@ -32,42 +32,6 @@ void blink2(void *p) {
 	}
 }
 
-void gen_test_packets(void *p) {
-  for(;;) {
-    uint16_t size = xPortGetFreeHeapSize();
-
-    general_message_t *content1 = general_message_create();
-    content1->text = "Hello World!";
-    content1->len = strlen(content1->text);
-
-    transceiver_message_t *message1 = transceiver_message_create();
-    message1->type = TRANSCEIVER_MSG_TYPE_GENERAL;
-    message1->data = content1;
-
-    general_message_t *content2 = general_message_create();
-    content2->text = "Hello World!";
-    content2->len = strlen(content2->text);
-
-    transceiver_message_t *message2 = transceiver_message_create();
-    message2->type = TRANSCEIVER_MSG_TYPE_GENERAL;
-    message2->data = content2;
-
-    general_message_t *content3 = general_message_create();
-    content3->text = "Hello World!";
-    content3->len = strlen(content3->text);
-
-    transceiver_message_t *message3 = transceiver_message_create();
-    message3->type = TRANSCEIVER_MSG_TYPE_GENERAL;
-    message3->data = content3;
-
-    transceiver_send_message(message1, 0);
-    transceiver_send_message(message2, 0);
-    transceiver_send_message(message3, 0);
-    
-    vTaskDelay(1);
-  }
-}
-
 int main(void)
 {	
 	board_init();
@@ -76,9 +40,8 @@ int main(void)
   ioport_set_pin_dir(LEDB, IOPORT_DIR_OUTPUT);
 
 	// start tasks
-	xTaskCreate(blink1, "blink1", 1024, NULL, 2, NULL);
-	xTaskCreate(blink2, "blink2", 1024, NULL, 2, NULL);
-  //xTaskCreate(gen_test_packets, "test data", 1024, NULL, 2, NULL);
+	xTaskCreate(blink1, "blink1", 64, NULL, 2, NULL);
+	xTaskCreate(blink2, "blink2", 64, NULL, 2, NULL);
   transceiver_start_task();
 
 	vTaskStartScheduler();

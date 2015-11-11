@@ -22,6 +22,7 @@
 #define PACKET_BYTES 20
 
 #define EVENT_QUEUE_DEPTH 8
+#define EVENT_DATA_SIZE_MAX 25
 
 #define DEBUG_LED IOPORT_CREATE_PIN(PORTA, 4)
 
@@ -39,9 +40,10 @@ enum transceiver_event_type {
   TRANSCEIVER_EVENT_TX_FRAME_PREPARE
 };
 
+// The following sturct uses a buffer that can be cast to the correct type base on "type" variable
 typedef struct {
   enum transceiver_event_type type;
-  void *data;
+  uint8_t data[EVENT_DATA_SIZE_MAX];
 } transceiver_event_t;
 
 static void transceiver_task_loop(void *p);
@@ -50,7 +52,7 @@ static void init_timer(void);
 static void add_priority_event(enum transceiver_event_type event_type, void *data);
 static void prepare_transmit_frame(void);
 static void add_message_to_frame(transceiver_message_t *new_message);
-static downlink_packet_t *general_message_to_packet(general_message_t *message);
+static downlink_packet_t general_message_to_packet(general_message_t *message);
 static void prepare_transmit_frame(void);
 
 static void dma_xfer_complete_handler(void);
@@ -67,40 +69,39 @@ static volatile uint8_t fifo_fill_depth;
 static volatile bool is_interrupt_reset_defered;
 static downlink_frame_t *currently_building_frame;
 static downlink_frame_t *frame_to_send;
+static downlink_frame_t frame_1;
+static downlink_frame_t frame_2;
 
 
 void transceiver_start_task(void) {
-  xTaskCreate(transceiver_task_loop, "transceiver", 200, NULL, 2, &transceiver_task_handle);
+  xTaskCreate(transceiver_task_loop, "transceiver", 1536, NULL, 2, &transceiver_task_handle);
   event_queue = xQueueCreate(EVENT_QUEUE_DEPTH, sizeof(transceiver_event_t));
   ioport_set_pin_dir(DEBUG_LED, IOPORT_DIR_OUTPUT);
 }
 
-void transceiver_send_message(transceiver_message_t *message, TickType_t ticks_to_wait) {
+void transceiver_send_message(transceiver_message_t message, TickType_t ticks_to_wait) {
   transceiver_event_t event = {
-    .data = message,
     .type = TRANSCEIVER_EVENT_MESSAGE_SENT
   };
+  memcpy(event.data, &message, EVENT_DATA_SIZE_MAX);
   xQueueSendToBack(event_queue, &event, ticks_to_wait);
 }
 
-transceiver_message_t *transceiver_message_create(void)
-{
-  transceiver_message_t *message = (transceiver_message_t *)pvPortMalloc(sizeof(transceiver_message_t));
-  if(message != NULL) {
-    memset(message, 0, sizeof(transceiver_message_t));
-  }
+transceiver_message_t transceiver_message_create(enum transceiver_message_type type, void *contents) {
+  transceiver_message_t message = {
+    .type = type,
+  };
+  memcpy(message.data, contents, MESSAGE_MAX_SIZE);
   return message;
-}
-
-void transceiver_message_destroy(transceiver_message_t *message) {
-  vPortFree(message);
 }
 
 static void transceiver_task_loop(void *p) {
   init_nrf24l01p(); 
   init_timer();
 
-  currently_building_frame = downlink_frame_create();
+  currently_building_frame = &frame_1;
+  frame_to_send = &frame_2;
+  downlink_frame_init(&frame_1);
 
   transceiver_event_t currentEvent;
   for(;;) {
@@ -111,55 +112,20 @@ static void transceiver_task_loop(void *p) {
         add_message_to_frame((transceiver_message_t *)currentEvent.data);
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_COMPLETE:
-        downlink_frame_destory(frame_to_send);
         state = TRANSCEIVER_STATE_IDLE;
 
-        general_message_t *content1 = general_message_create();
-        content1->text = "Hello World!";
-        content1->len = strlen(content1->text);
+        general_message_t content = {
+          .text = "Hello World!",
+          .len = 12
+        };
 
-        transceiver_message_t *message1 = transceiver_message_create();
-        message1->type = TRANSCEIVER_MSG_TYPE_GENERAL;
-        message1->data = content1;
-
-        general_message_t *content2 = general_message_create();
-        content2->text = "Hello World!";
-        content2->len = strlen(content2->text);
-
-        transceiver_message_t *message2 = transceiver_message_create();
-        message2->type = TRANSCEIVER_MSG_TYPE_GENERAL;
-        message2->data = content2;
-
+        transceiver_message_t message = transceiver_message_create(TRANSCEIVER_MSG_TYPE_GENERAL, &content);
         
-        general_message_t *content3 = general_message_create();
-        content3->text = "Hello World!";
-        content3->len = strlen(content3->text);
-
-        transceiver_message_t *message3 = transceiver_message_create();
-        message3->type = TRANSCEIVER_MSG_TYPE_GENERAL;
-        message3->data = content3;
-
-        general_message_t *content4 = general_message_create();
-        content4->text = "Hello World!";
-        content4->len = strlen(content4->text);
-
-        transceiver_message_t *message4 = transceiver_message_create();
-        message4->type = TRANSCEIVER_MSG_TYPE_GENERAL;
-        message4->data = content4;
-        
-        general_message_t *content5 = general_message_create();
-        content5->text = "Hello World!";
-        content5->len = strlen(content5->text);
-
-        transceiver_message_t *message5 = transceiver_message_create();
-        message5->type = TRANSCEIVER_MSG_TYPE_GENERAL;
-        message5->data = content5;
-        
-        transceiver_send_message(message1, 0);
-        transceiver_send_message(message2, 0);
-        transceiver_send_message(message3, 0);
-        transceiver_send_message(message4, 0);
-        transceiver_send_message(message5, 0);
+        transceiver_send_message(message, 0);
+        transceiver_send_message(message, 0);
+        transceiver_send_message(message, 0);
+        transceiver_send_message(message, 0);
+        transceiver_send_message(message, 0);
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_PREPARE:
         prepare_transmit_frame();
@@ -201,30 +167,36 @@ static void init_timer(void) {
 
 static inline void add_priority_event(enum transceiver_event_type event_type, void *data) {
   transceiver_event_t event = {
-    .data = data,
     .type = event_type
   };
+  memcpy(event.data, data, EVENT_DATA_SIZE_MAX);
   xQueueSendToFrontFromISR(event_queue, &event, NULL);
 };
 
 static void prepare_transmit_frame(void) {
   state = TRANSCEIVER_STATE_PREPARING;
+  // TODO Make atomic
+  downlink_frame_t *tmp = currently_building_frame;
+  currently_building_frame = frame_to_send;
+  frame_to_send = tmp;
+  downlink_frame_init(currently_building_frame);
 
-  frame_to_send = currently_building_frame;
-  currently_building_frame = downlink_frame_create();
-  downlink_frame_prepare_for_sending(frame_to_send);
-  downlink_packet_t *first_packet = downlink_frame_get_packet(frame_to_send);
-  nrf24l01p_send_payload_async(first_packet->bytes, first_packet->len, dma_xfer_complete_handler);
+  downlink_frame_write_header(frame_to_send);
+  downlink_packet_t first_packet;
+  downlink_frame_get_next_packet(frame_to_send, &first_packet);
+
+  nrf24l01p_send_payload_async(first_packet.bytes, first_packet.len, dma_xfer_complete_handler);
 }
 
 static void add_message_to_frame(transceiver_message_t *new_message) {
+  downlink_packet_t packet;
   switch(new_message->type) {
     case TRANSCEIVER_MSG_TYPE_GENERAL:
-      downlink_frame_add_packet(currently_building_frame ,general_message_to_packet((general_message_t *)new_message->data));
-      transceiver_message_destroy(new_message);
+      packet = general_message_to_packet((general_message_t *)new_message->data);
+      
       break;
   }
-  
+  downlink_frame_add_packet(currently_building_frame, &packet);
 }
 
 /*
@@ -235,13 +207,10 @@ static void add_message_to_frame(transceiver_message_t *new_message) {
  *  downlink frame function can insert their packet index
  */
 
-static downlink_packet_t *general_message_to_packet(general_message_t *message) {
-  downlink_packet_t *packet = downlink_packet_create(sizeof(uint8_t) * (message->len + 1));
-
-  memcpy(packet->bytes + 1, message->text, message->len);
-
-  general_message_destory(message);
-  
+static downlink_packet_t general_message_to_packet(general_message_t *message) {
+  downlink_packet_t packet;
+  memcpy(packet.bytes + 2, message->text, message->len); // 0 = DMA command space, 1 = packet number
+  packet.len = message->len + 1;
   return packet;
 }
 
@@ -250,9 +219,9 @@ static void dma_xfer_complete_handler(void) {
     case TRANSCEIVER_STATE_PREPARING:
       fifo_fill_depth++;
       if(fifo_fill_depth < 3) {
-        downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
-        if(packet != NULL) {
-          nrf24l01p_send_payload_async_from_isr(packet->bytes, packet->len, dma_xfer_complete_handler);
+        downlink_packet_t packet;
+        if(!downlink_frame_get_next_packet(frame_to_send, &packet)) {
+          nrf24l01p_send_payload_async_from_isr(packet.bytes, packet.len, dma_xfer_complete_handler);
         }
       }
       break;
@@ -277,10 +246,9 @@ static void nrf24l01p_interrupt_handler(void) {
     // Packet transmitted
     fifo_fill_depth--;
 
-    downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
-
-    if(packet != NULL) {
-      nrf24l01p_reset_interrupts_and_send_payload_async_from_isr(packet->bytes, packet->len, dma_xfer_complete_handler);
+    downlink_packet_t packet;
+    if(!downlink_frame_get_next_packet(frame_to_send, &packet)) {
+      nrf24l01p_reset_interrupts_and_send_payload_async_from_isr(packet.bytes, packet.len, dma_xfer_complete_handler);
     }
     else if(fifo_fill_depth == 0) {
       // No more packets to transmit

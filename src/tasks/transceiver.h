@@ -17,14 +17,13 @@ enum transceiver_message_type {
 
 typedef struct {
   enum transceiver_message_type type;
-  void *data;
+  uint8_t data[MESSAGE_MAX_SIZE];
 } transceiver_message_t;
 
 extern TaskHandle_t transceiver_task_handle;
 
 void transceiver_start_task(void);
-void transceiver_send_message(transceiver_message_t *message, TickType_t ticks_to_wait);
-transceiver_message_t *transceiver_message_create(void);
-void transceiver_message_destroy(transceiver_message_t *message);
+void transceiver_send_message(transceiver_message_t message, TickType_t ticks_to_wait);
+transceiver_message_t transceiver_message_create(enum transceiver_message_type type, void *contents);
 
 #endif /* TRANSCEIVER_H_ */
