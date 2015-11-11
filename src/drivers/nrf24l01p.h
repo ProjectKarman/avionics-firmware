@@ -63,6 +63,7 @@ uint8_t nrf24l01p_flush_rx_fifo(void);
 uint8_t nrf24l01p_send_payload(uint8_t *data, size_t data_len);
 uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback);
 uint8_t nrf24l01p_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback);
+uint8_t nrf24l01p_reset_interrupts_and_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback);
 void nrf24l01p_set_interrupt_pin_handler(nrf24l01p_callback_t callback);
 void nrf24l01p_start_operation(void);
 void nrf24l01p_end_operation(void);

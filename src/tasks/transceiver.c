@@ -21,7 +21,9 @@
 
 #define PACKET_BYTES 20
 
-#define EVENT_QUEUE_DEPTH 5
+#define EVENT_QUEUE_DEPTH 8
+
+#define DEBUG_LED IOPORT_CREATE_PIN(PORTA, 4)
 
 enum transeiver_state {
   TRANSCEIVER_STATE_IDLE,
@@ -70,6 +72,7 @@ static downlink_frame_t *frame_to_send;
 void transceiver_start_task(void) {
   xTaskCreate(transceiver_task_loop, "transceiver", 200, NULL, 2, &transceiver_task_handle);
   event_queue = xQueueCreate(EVENT_QUEUE_DEPTH, sizeof(transceiver_event_t));
+  ioport_set_pin_dir(DEBUG_LED, IOPORT_DIR_OUTPUT);
 }
 
 void transceiver_send_message(transceiver_message_t *message, TickType_t ticks_to_wait) {
@@ -127,7 +130,7 @@ static void transceiver_task_loop(void *p) {
         message2->type = TRANSCEIVER_MSG_TYPE_GENERAL;
         message2->data = content2;
 
-        /*
+        
         general_message_t *content3 = general_message_create();
         content3->text = "Hello World!";
         content3->len = strlen(content3->text);
@@ -143,12 +146,20 @@ static void transceiver_task_loop(void *p) {
         transceiver_message_t *message4 = transceiver_message_create();
         message4->type = TRANSCEIVER_MSG_TYPE_GENERAL;
         message4->data = content4;
-        */
+        
+        general_message_t *content5 = general_message_create();
+        content5->text = "Hello World!";
+        content5->len = strlen(content5->text);
 
+        transceiver_message_t *message5 = transceiver_message_create();
+        message5->type = TRANSCEIVER_MSG_TYPE_GENERAL;
+        message5->data = content5;
+        
         transceiver_send_message(message1, 0);
         transceiver_send_message(message2, 0);
-        //transceiver_send_message(message3, 0);
-        //transceiver_send_message(message4, 0);
+        transceiver_send_message(message3, 0);
+        transceiver_send_message(message4, 0);
+        transceiver_send_message(message5, 0);
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_PREPARE:
         prepare_transmit_frame();
@@ -160,7 +171,6 @@ static void transceiver_task_loop(void *p) {
 static void init_nrf24l01p(void) {
   char *address = "W1KBN";
 
-  //nrf24l01p_read_regs();
   nrf24l01p_wake();
   nrf24l01p_flush_rx_fifo();
   nrf24l01p_flush_tx_fifo();
@@ -226,10 +236,7 @@ static void add_message_to_frame(transceiver_message_t *new_message) {
  */
 
 static downlink_packet_t *general_message_to_packet(general_message_t *message) {
-  downlink_packet_t *packet = downlink_packet_create();
-
-  packet->bytes = pvPortMalloc(sizeof(uint8_t) * (message->len + 1));
-  packet->len = message->len + 1;
+  downlink_packet_t *packet = downlink_packet_create(sizeof(uint8_t) * (message->len + 1));
 
   memcpy(packet->bytes + 1, message->text, message->len);
 
@@ -265,35 +272,38 @@ static void dma_xfer_complete_handler(void) {
 }
 
 static void nrf24l01p_interrupt_handler(void) {
-  if(nrf24l01p_reset_interrupts_async_from_isr(nrf24l01p_reset_interrupt_handler)) {
-    // We were blocked from this function... probably because payload transfer was occuring, lets defer this action
-    is_interrupt_reset_defered = true;
+  switch(state) {
+    case TRANSCEIVER_STATE_TRANSMITTING:
+    // Packet transmitted
+    fifo_fill_depth--;
+
+    downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
+
+    if(packet != NULL) {
+      nrf24l01p_reset_interrupts_and_send_payload_async_from_isr(packet->bytes, packet->len, dma_xfer_complete_handler);
+    }
+    else if(fifo_fill_depth == 0) {
+      // No more packets to transmit
+      nrf24l01p_reset_interrupts_async_from_isr(NULL);
+      state = TRANSCEIVER_STATE_IDLE;
+      nrf24l01p_end_operation();
+      add_priority_event(TRANSCEIVER_EVENT_TX_FRAME_COMPLETE, NULL);
+    }
+    else {
+      nrf24l01p_reset_interrupts_async_from_isr(NULL);
+    }
+    break;
+    case TRANSCEIVER_STATE_RECEIVING:
+    // Packet received
+    fifo_fill_depth++;
+    break;
+    default:
+    break;
   }
 }
 
 static void nrf24l01p_reset_interrupt_handler(void) {
-  switch(state) {
-    case TRANSCEIVER_STATE_TRANSMITTING:
-      // Packet transmitted
-      fifo_fill_depth--;
-      downlink_packet_t *packet = downlink_frame_get_packet(frame_to_send);
-      if(packet != NULL) {
-        nrf24l01p_send_payload_async_from_isr(packet->bytes, packet->len, dma_xfer_complete_handler);
-      }
-      else if(fifo_fill_depth == 0) {
-        // No more packets to transmit
-        state = TRANSCEIVER_STATE_IDLE;
-        nrf24l01p_end_operation();
-        add_priority_event(TRANSCEIVER_EVENT_TX_FRAME_COMPLETE, NULL);
-      }
-      break;
-    case TRANSCEIVER_STATE_RECEIVING:
-      // Packet received
-      fifo_fill_depth++;
-      break;
-    default:
-      break;
-  }
+  
 }
 
 static void protocol_timer_overflow_handler(void) {

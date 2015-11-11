@@ -10,15 +10,18 @@
 #include "FreeRTOS.h"
 #include "downlink_frame.h"
 
-downlink_packet_t *downlink_packet_create(void)
+downlink_packet_t *downlink_packet_create(size_t data_size)
 {
   downlink_packet_t *packet = (downlink_packet_t *)pvPortMalloc(sizeof(downlink_packet_t));
   memset(packet, 0, sizeof(downlink_packet_t));
+  uint8_t *data_space = (uint8_t *)pvPortMalloc(data_size + sizeof(uint8_t)); // Extra byte is for DMA command storage
+  packet->bytes = data_space + 1; // We want functions using this struct to ignore the extra byte
+  packet->len = data_size;
   return packet;
 }
 
 void downlink_packet_destroy(downlink_packet_t *packet) {
-  vPortFree(packet->bytes);
+  vPortFree(packet->bytes - 1); // When freeing we need to account for the pack this pointer is offset
   vPortFree(packet);
 }
 
@@ -60,13 +63,12 @@ void downlink_frame_copy_retransmissions(downlink_frame_t *frame, downlink_packe
 
 void downlink_frame_prepare_for_sending(downlink_frame_t *frame) {
   // Generate Header
-  downlink_packet_t *header_packet = downlink_packet_create();
+  downlink_packet_t *header_packet = downlink_packet_create(1);
   if(header_packet == NULL) {
     // No memory yo
     return;
   }
-  header_packet->len = 1;
-  header_packet->bytes = pvPortMalloc(sizeof(uint8_t));
+
   frame->header_packet = header_packet;
 
   downlink_packet_t *tail_packet = header_packet;

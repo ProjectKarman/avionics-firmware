@@ -25,7 +25,7 @@ typedef struct {
   downlink_packet_t *packet_prt;
 } downlink_frame_t;
 
-downlink_packet_t *downlink_packet_create(void);
+downlink_packet_t *downlink_packet_create(size_t data_size);
 void downlink_packet_destroy(downlink_packet_t *packet);
 downlink_frame_t *downlink_frame_create(void);
 void downlink_frame_destory(downlink_frame_t *frame);
