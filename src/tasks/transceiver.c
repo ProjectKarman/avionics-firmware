@@ -248,7 +248,7 @@ static void nrf24l01p_interrupt_handler(void) {
 
     downlink_packet_t packet;
     if(!downlink_frame_get_next_packet(frame_to_send, &packet)) {
-      nrf24l01p_reset_interrupts_and_send_payload_async_from_isr(packet.bytes, packet.len, dma_xfer_complete_handler);
+      nrf24l01p_reset_interrupts_and_send_payload_from_isr(packet.bytes, packet.len, dma_xfer_complete_handler);
     }
     else if(fifo_fill_depth == 0) {
       // No more packets to transmit

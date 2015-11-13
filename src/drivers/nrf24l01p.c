@@ -77,7 +77,7 @@ enum command_type {
   CMD_TYPE_SYNC,
   CMD_TYPE_ASYNC,
   CMD_TYPE_DMA,
-  CMD_TYPE_DMA_INTR_RST,
+  CMD_TYPE_DMA_TWO_XFER,
 };
 
 enum dma_config_state {
@@ -479,7 +479,11 @@ uint8_t nrf24l01p_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, n
   }
 }
 
-uint8_t nrf24l01p_reset_interrupts_and_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
+/*
+ * The following function sync sends the reset command and then sends the next payload async then returns
+ * It was implemented this way to meet the strict timing deadline of sending new payloads between interrupts
+ */
+uint8_t nrf24l01p_reset_interrupts_and_send_payload_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   if(xSemaphoreTakeFromISR(command_running_semaphore, NULL) == pdTRUE) {
     // Setup payload
     data[0] = SPICMD_W_TX_PAYLOAD;
@@ -492,7 +496,22 @@ uint8_t nrf24l01p_reset_interrupts_and_send_payload_async_from_isr(uint8_t *data
     DMA.CH0.SRCADDR2 = 0x0;
     DMA.CH0.TRFCNT = sizeof(RESET_INTERRUPTS_CMD);
     
-    current_command_type = CMD_TYPE_DMA_INTR_RST;
+    //current_command_type = CMD_TYPE_DMA_INTR_RST;
+    current_function_callback = callback;
+    spi_startframe();
+    DMA.CH0.CTRLB &= ~(DMA_CH_TRNINTLVL0_bm | DMA_CH_TRNINTLVL1_bm); // Disable DMA complete interrupt
+    dma_channel_enable(DMA_TX_CHANNEL_NUM);
+    while(DMA.STATUS & DMA_CH0BUSY_bm) {
+      nop();
+    }
+    spi_endframe();
+    DMA.CH0.CTRLB |= DMA_CH_TRNINTLVL0_bm | DMA_CH_TRNINTLVL1_bm; // Re enable DMA complete interrupt
+    DMA.CH0.SRCADDR0 = (((uint16_t)data) >> 0*8 ) & 0xff;
+    DMA.CH0.SRCADDR1 = (((uint16_t)data) >> 1*8 ) & 0xff;
+    DMA.CH0.SRCADDR2 = 0x0;
+    DMA.CH0.TRFCNT = data_len + 1;
+    
+    current_command_type = CMD_TYPE_DMA;
     current_function_callback = callback;
     spi_startframe();
     dma_channel_enable(DMA_TX_CHANNEL_NUM);
@@ -599,7 +618,7 @@ static void spi_endframe() {
 }
 
 static void dma_channel_handler(enum dma_channel_status status) {
-  if(current_command_type == CMD_TYPE_DMA_INTR_RST) {
+  if(current_command_type == CMD_TYPE_DMA_TWO_XFER) {
     // This branch allows for a quick reset and send payload
     spi_endframe();
     DMA.CH0.SRCADDR0 = (((uint16_t)bytes_to_send) >> 0*8 ) & 0xff;
@@ -667,7 +686,7 @@ ISR(USARTC0_TXC_vect) {
           current_function_callback();
         }
         break;
-      case CMD_TYPE_DMA_INTR_RST:
+      case CMD_TYPE_DMA_TWO_XFER:
       case CMD_TYPE_DMA:
         usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
         dma_channel_enable(DMA_TX_CHANNEL_NUM);
