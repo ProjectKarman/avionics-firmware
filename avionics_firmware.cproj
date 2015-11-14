@@ -445,6 +445,12 @@
     <Compile Include="src\util\downlink_frame.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\util\trace.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\util\trace.h">
+      <SubType>compile</SubType>
+    </Compile>
     <None Include="src\ASF\common\boards\board.h">
       <SubType>compile</SubType>
     </None>

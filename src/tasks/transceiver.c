@@ -24,8 +24,6 @@
 #define EVENT_QUEUE_DEPTH 8
 #define EVENT_DATA_SIZE_MAX 25
 
-#define DEBUG_LED IOPORT_CREATE_PIN(PORTA, 4)
-
 enum transeiver_state {
   TRANSCEIVER_STATE_IDLE,
   TRANSCEIVER_STATE_SLEEP,
@@ -76,7 +74,6 @@ static downlink_frame_t frame_2;
 void transceiver_start_task(void) {
   xTaskCreate(transceiver_task_loop, "transceiver", 1536, NULL, 2, &transceiver_task_handle);
   event_queue = xQueueCreate(EVENT_QUEUE_DEPTH, sizeof(transceiver_event_t));
-  ioport_set_pin_dir(DEBUG_LED, IOPORT_DIR_OUTPUT);
 }
 
 void transceiver_send_message(transceiver_message_t message, TickType_t ticks_to_wait) {
@@ -96,6 +93,8 @@ transceiver_message_t transceiver_message_create(enum transceiver_message_type t
 }
 
 static void transceiver_task_loop(void *p) {
+  vTaskSetApplicationTaskTag( NULL, ( void * ) 1 );
+  
   init_nrf24l01p(); 
   init_timer();
 

@@ -50,7 +50,7 @@
 #define configMINIMAL_STACK_SIZE    ( ( unsigned short ) 150 )//85
 #define configTOTAL_HEAP_SIZE       ( (size_t ) ( 6000 ) )//1500
 #define configMAX_TASK_NAME_LEN     ( 8 )
-#define configUSE_TRACE_FACILITY    0
+#define configUSE_TRACE_FACILITY    1
 #define configUSE_16_BIT_TICKS      1
 #define configIDLE_SHOULD_YIELD     1
 #define configQUEUE_REGISTRY_SIZE   0
@@ -70,6 +70,8 @@
 #define INCLUDE_uxTaskGetStackHighWaterMark     1
 #define INCLUDE_xTaskGetCurrentTaskHandle       1
 #define configUSE_MALLOC_FAILED_HOOK            0//0
+#define configUSE_APPLICATION_TASK_TAG 1
+#define configUSE_TRACE_FACILITY 1
 
 /* Co-routine definitions. */
 #define configUSE_CO_ROUTINES       0 //1
@@ -86,5 +88,6 @@ to exclude the API function. */
 #define INCLUDE_vTaskDelayUntil         1
 #define INCLUDE_vTaskDelay              1
 
+#include "trace.h"
 
 #endif /* FREERTOS_CONFIG_H */

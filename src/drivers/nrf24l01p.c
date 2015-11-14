@@ -16,8 +16,6 @@
 #include "task.h"
 #include "semphr.h"
 
-#define DEBUG_LED IOPORT_CREATE_PIN(PORTA, 4)
-
 // Chip SPI Commands
 #define SPICMD_R_REGISTER(reg) (0x00 | reg)
 #define SPICMD_W_REGISTER(reg) (0x20 | reg)
@@ -131,8 +129,6 @@ void nrf24l01p_init(void) {
   ioport_set_pin_sense_mode(IRQ_PIN, IOPORT_SENSE_FALLING);
   arch_ioport_pin_to_base(IRQ_PIN)->INT0MASK |= arch_ioport_pin_to_mask(IRQ_PIN);
   arch_ioport_pin_to_base(IRQ_PIN)->INTCTRL |= PORT_INT0LVL_HI_gc;
-
-  ioport_set_pin_dir(DEBUG_LED, IOPORT_DIR_OUTPUT);
 
   // Init SPI
   struct usart_spi_device spi_conf = {
