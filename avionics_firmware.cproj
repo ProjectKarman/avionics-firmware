@@ -427,7 +427,7 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="src\freertos\port\heap_4.c">
+    <Compile Include="src\freertos\port\heap_1.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\util\downlink_frame.h">

@@ -8,9 +8,8 @@
 #include "trace.h"
 #include <stdint.h>
 #include "asf.h"
-
-#define DEBUG_0 IOPORT_CREATE_PIN(PORTA, 4)
-#define DEBUG_1 IOPORT_CREATE_PIN(PORTA, 5)
+#include "freertos.h"
+#include "queue.h"
 
 void trace_init(void) {
   ioport_set_pin_dir(DEBUG_0, IOPORT_DIR_OUTPUT);
@@ -27,4 +26,8 @@ void task_out(uint8_t task) {
   if(task == 1) {
     ioport_set_pin_low(DEBUG_0);
   }
+}
+
+void trace_queue_send_failed(QueueHandle_t queue) {
+  ioport_set_pin_high(DEBUG_1);
 }
