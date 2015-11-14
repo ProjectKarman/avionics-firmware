@@ -9,29 +9,40 @@
 #include "task.h"
 #include "queue.h"
 
+#include "transceiver.h"
+
+#define LEDA IOPORT_CREATE_PIN(PORTA, 0)
+#define LEDB IOPORT_CREATE_PIN(PORTA, 1)
+
+void blink1(void *p);
+void blink2(void *p);
+void gen_test_packets(void *p);
+
 void blink1(void *p) {	
 	while (1) {
-        PORTA.OUT ^= 0x01;
-        vTaskDelay(1000);
+    ioport_toggle_pin_level(LEDA);
+    vTaskDelay(1000);
 	}
 }
 
 void blink2(void *p) {
 	while (1) {
-		PORTA.OUT ^= 0x02;
+		ioport_toggle_pin_level(LEDB);
 		vTaskDelay(100);
 	}
 }
 
 int main(void)
 {	
-	PORTA.DIR |= 0x03;
-
 	board_init();
-	
+
+  ioport_set_pin_dir(LEDA, IOPORT_DIR_OUTPUT);
+  ioport_set_pin_dir(LEDB, IOPORT_DIR_OUTPUT);
+
 	// start tasks
-	xTaskCreate(blink1, (signed char*) "blink1", 1024, NULL, 2, NULL);
-	xTaskCreate(blink2, (signed char*) "blink2", 1024, NULL, 2, NULL);
+	xTaskCreate(blink1, "blink1", 64, NULL, 2, NULL);
+	xTaskCreate(blink2, "blink2", 64, NULL, 2, NULL);
+  // transceiver_start_task();
 
 	vTaskStartScheduler();
 	
