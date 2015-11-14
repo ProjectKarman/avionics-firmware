@@ -27,7 +27,3 @@ void task_out(uint8_t task) {
     ioport_set_pin_low(DEBUG_0);
   }
 }
-
-void trace_queue_send_failed(QueueHandle_t queue) {
-  ioport_set_pin_high(DEBUG_1);
-}

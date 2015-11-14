@@ -19,9 +19,14 @@ void downlink_frame_init(downlink_frame_t *frame) {
 }
 
 void downlink_frame_add_packet(downlink_frame_t *frame, downlink_packet_t *packet) {
-  *(frame->write_ptr) = *packet;
-  frame->write_ptr += 1;
   frame->size++;
+  *(frame->write_ptr) = *packet;
+  if(frame->write_ptr < frame->packets + FRAME_MAX_SIZE - 1 ) {
+    frame->write_ptr++;
+  }
+  else {
+    frame->write_ptr = frame->packets; 
+  }
 }
 
 void downlink_frame_write_header(downlink_frame_t *frame) {
@@ -35,12 +40,18 @@ void downlink_frame_write_header(downlink_frame_t *frame) {
 }
 
 uint8_t downlink_frame_get_next_packet(downlink_frame_t *frame, downlink_packet_t *next_packet) {
-  if(frame->read_ptr == frame->write_ptr) {
+  if(frame->size == 0) {
     return 1;
   }
   else {
     *next_packet = *(frame->read_ptr);
-    frame->read_ptr += 1;
+    if(frame->read_ptr < frame->packets + FRAME_MAX_SIZE - 1 ) {
+      frame->read_ptr++;
+    }
+    else {
+      frame->read_ptr = frame->packets;
+    }
+    frame->size--;
     return 0;
   }
 }
