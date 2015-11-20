@@ -10,13 +10,13 @@
 #include "queue.h"
 
 #include "transceiver.h"
+#include "sensor.h"
 
 #define LEDA IOPORT_CREATE_PIN(PORTA, 0)
 #define LEDB IOPORT_CREATE_PIN(PORTA, 1)
 
 void blink1(void *p);
 void blink2(void *p);
-void gen_test_packets(void *p);
 
 void blink1(void *p) {	
 	while (1) {
@@ -33,6 +33,7 @@ void blink2(void *p) {
 }
 
 int main(void)
+
 {	
 	board_init();
 
@@ -43,6 +44,8 @@ int main(void)
 	xTaskCreate(blink1, "blink1", 64, NULL, 2, NULL);
 	xTaskCreate(blink2, "blink2", 64, NULL, 2, NULL);
   // transceiver_start_task();
+  
+  sensor_start_task();
 
 	vTaskStartScheduler();
 	

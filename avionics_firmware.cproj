@@ -216,6 +216,9 @@
       <ToolName xmlns="">Simulator</ToolName>
     </com_atmel_avrdbg_tool_simulator>
     <ExternalProgrammingToolCommand />
+    <avrtoolserialnumber>J41800026976</avrtoolserialnumber>
+    <avrdeviceexpectedsignature>0x1E9843</avrdeviceexpectedsignature>
+    <avrtoolinterfaceclock>4000000</avrtoolinterfaceclock>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>
@@ -427,7 +430,19 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\drivers\ms5607_02ba.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\ms5607_02ba.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\freertos\port\heap_4.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\tasks\sensor.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\tasks\sensor.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\util\downlink_frame.h">
