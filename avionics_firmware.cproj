@@ -435,6 +435,10 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\drivers\ms5607_02ba.h">
+    <Compile Include="src\drivers\uart_io.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\uart_io.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\freertos\port\heap_4.c">
@@ -444,6 +448,10 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\tasks\sensor.h">
+    <Compile Include="src\tasks\command_prompt.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\tasks\command_prompt.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\util\downlink_frame.h">
