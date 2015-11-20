@@ -10,6 +10,7 @@
 #include "queue.h"
 
 #include "transceiver.h"
+#include "command_prompt.h"
 
 #define LEDA IOPORT_CREATE_PIN(PORTA, 0)
 #define LEDB IOPORT_CREATE_PIN(PORTA, 1)
