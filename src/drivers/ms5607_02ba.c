@@ -83,6 +83,7 @@ static void get_data(uint8_t *buffer, uint8_t buffer_len);
 static void get_data_async(uint8_t read_len, ms5607_02ba_callback_t callback);
 static uint32_t convert_buffer_24(uint8_t *buffer);
 static uint16_t convert_buffer_16(uint8_t *buffer);
+static void async_read_helper(void);
 
 /* Private Variables */
 static prom_t prom_data;
@@ -195,12 +196,10 @@ uint8_t ms5607_02ba_read_adc(uint32_t *adc_value) {
   }
 }
 
-uint8_t ms5607_02ba_read_async(ms5607_02ba_callback_t callback) {
+uint8_t ms5607_02ba_read_adc_async(ms5607_02ba_callback_t callback) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     final_op_callback = callback;
-    send_command_async(CMD_ADC_READ, lambda(void, (void), {
-      get_data_async(2, final_op_callback);
-    }));
+    send_command_async(CMD_ADC_READ, async_read_helper);
 
     return 0;
   }
@@ -260,6 +259,7 @@ static void get_data_async(uint8_t read_len, ms5607_02ba_callback_t callback) {
   op_buffer_index = 0;
   op_buffer_len = read_len;
   current_command_type = CMD_TYPE_READ_ASYNC;
+  current_op_callback = callback;
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1 | 0x1;
 }
 
@@ -271,23 +271,32 @@ static inline uint16_t convert_buffer_16(uint8_t *buffer) {
   return ((uint16_t)buffer[0] << 8*1) | ((uint32_t)buffer[1] << 8*0);
 }
 
+static void async_read_helper(void) {
+  get_data_async(3, final_op_callback);
+}
+
 /* Interrupts */
 ISR(TWIE_TWIM_vect) {
   if(!(current_command_type & READ_CMD_TYPE_MASK) && (op_buffer_index < op_buffer_len)) {
     // Write in process
     TWI_MASTER.MASTER.DATA = op_buffer[op_buffer_index++];
   }
-  else if((current_command_type & READ_CMD_TYPE_MASK) && (op_buffer_index < op_buffer_len - 1)) {
+  else if((current_command_type & READ_CMD_TYPE_MASK) && op_buffer_index < (op_buffer_len - 1)) {
     // Read in progress
     op_buffer[op_buffer_index++] = TWI_MASTER.MASTER.DATA;
     TWI_MASTER.MASTER.CTRLC = TWI_MASTER_CMD_RECVTRANS_gc;
   }
   else {
-    TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc; // Send stop command
     if(current_command_type & READ_CMD_TYPE_MASK) {
       // Read last byte
       op_buffer[op_buffer_index++] = TWI_MASTER.MASTER.DATA;
+      TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_ACKACT_bm;
     }
+    else {
+      TWI_MASTER.MASTER.CTRLC &= ~TWI_MASTER_ACKACT_bm;
+    }
+    TWI_MASTER.MASTER.CTRLC |=  TWI_MASTER_CMD_STOP_gc; // Send stop command
+    
     if(current_command_type & ASYNC_CMD_TYPE_MASK) {
       // Async command finished
       if(current_command_type == CMD_TYPE_READ_ASYNC) {

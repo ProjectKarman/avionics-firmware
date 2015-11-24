@@ -31,7 +31,7 @@ uint8_t ms5607_02ba_convert_d1_async(enum ms5607_02ba_osr osr, ms5607_02ba_callb
 uint8_t ms5607_02ba_convert_d2(enum ms5607_02ba_osr osr);
 uint8_t ms5607_02ba_convert_d2_async(enum ms5607_02ba_osr osr, ms5607_02ba_callback_t callback);
 uint8_t ms5607_02ba_read_adc(uint32_t* adc_value);
-uint8_t ms5607_02ba_read_async(ms5607_02ba_callback_t callback);
+uint8_t ms5607_02ba_read_adc_async(ms5607_02ba_callback_t callback);
 uint8_t ms5607_02ba_load_prom(void);
 rocket_temp_t ms5607_02ba_calculate_temp(uint32_t d2);
 rocket_press_t ms5607_02ba_calculate_press(uint32_t d1, uint32_t d2);
