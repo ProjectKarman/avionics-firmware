@@ -1,16 +1,26 @@
+/*
+ * ms5607_02ba.c
+ *
+ * Created: 11/24/2015 12:10:00 AM
+ *  Author: Nigil Lee
+ */ 
+
 #include "ms5607_02ba.h"
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "asf.h"
 #include "FreeRTOS.h"
+#include "queue.h"
 #include "semphr.h"
 #include "task.h"
 
 // Device Params
 #define DEVICE_ADDRESS 0x77
 #define DEVICE_RESET_DELAY 3
+#define DEVICE_MAX_DATA_LEN 3
 
 // Device Command Set
 #define CMD_RESET             0x1E
@@ -36,6 +46,7 @@
 
 // Misc
 #define SEMAPHORE_BLOCK_TIME 0
+#define ASYNC_QUEUE_DEPTH 3
 
 /* Private Types */
 typedef struct {
@@ -49,18 +60,30 @@ typedef struct {
   uint16_t crc;
 } prom_t;
 
+enum command_type {
+  CMD_TYPE_WRITE,
+  CMD_TYPE_WRITE_ASYNC,
+  CMD_TYPE_READ,
+  CMD_TYPE_READ_ASYNC
+};
+
 /* Private Function Prototypes */
 static void send_command(uint8_t cmd);
+static void send_command_async(uint8_t cmd, ms5607_02ba_callback_t callback);
 static void get_data(uint8_t *buffer, uint8_t buffer_len);
+static uint32_t convert_buffer_24(uint8_t *buffer);
+static uint16_t convert_buffer_16(uint8_t *buffer);
 
 /* Private Variables */
 static prom_t prom_data;
-static uint8_t *op_buffer;
+static uint8_t op_buffer[DEVICE_MAX_DATA_LEN];
 static uint8_t op_buffer_len;
-static uint8_t op_buffer_index;
-static bool is_op_write;
+volatile static uint8_t op_buffer_index;
 static SemaphoreHandle_t command_complete_semaphore;
 static SemaphoreHandle_t command_running_semaphore;
+static QueueHandle_t aysnc_data_queue;
+static ms5607_02ba_callback_t current_op_callback;
+static enum command_type current_command_type;
 
 void ms5607_02ba_init(void) {
   TWI_MASTER_PORT.PIN0CTRL |= PORT_OPC_WIREDANDPULL_gc;
@@ -74,6 +97,7 @@ void ms5607_02ba_init(void) {
   TWI_MASTER.MASTER.STATUS |= TWI_MASTER_BUSSTATE_IDLE_gc;
   
   // OS Level Structures
+  aysnc_data_queue = xQueueCreate(ASYNC_QUEUE_DEPTH, sizeof(uint32_t));
   command_running_semaphore = xSemaphoreCreateBinary();
   if(command_running_semaphore) {
     xSemaphoreGive(command_running_semaphore);
@@ -94,7 +118,7 @@ uint8_t ms5607_02ba_reset(void) {
   }
 }
 
-uint8_t ms5607_02ba_convert_D1(enum ms5607_02ba_osr osr) {
+uint8_t ms5607_02ba_convert_d1(enum ms5607_02ba_osr osr) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     const uint8_t cmd = CMD_CONVERTD1(osr);
     send_command(cmd);
@@ -107,11 +131,35 @@ uint8_t ms5607_02ba_convert_D1(enum ms5607_02ba_osr osr) {
   }
 }
 
-uint8_t ms5607_02ba_convert_D2(enum ms5607_02ba_osr osr) {
+uint8_t ms5607_02ba_convert_d1_async(enum ms5607_02ba_osr osr, ms5607_02ba_callback_t callback) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    const uint8_t cmd = CMD_CONVERTD1(osr);
+    send_command_async(cmd, callback);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t ms5607_02ba_convert_d2(enum ms5607_02ba_osr osr) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     const uint8_t cmd = CMD_CONVERTD2(osr);
     send_command(cmd);
     xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t ms5607_02ba_convert_d2_async(enum ms5607_02ba_osr osr, ms5607_02ba_callback_t callback) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    const uint8_t cmd = CMD_CONVERTD2(osr);
+    send_command_async(cmd, callback);
 
     return 0;
   }
@@ -125,7 +173,7 @@ uint8_t ms5607_02ba_read_adc(uint32_t *adc_value) {
     uint8_t buffer[3];
     send_command(CMD_ADC_READ);
     get_data(buffer, 3);
-    *adc_value = ((uint32_t)buffer[0] << 8*2) | ((uint32_t)buffer[1] << 8*1) | ((uint32_t)buffer[2] << 8*0);
+    *adc_value = convert_buffer_24(buffer);
     xSemaphoreGive(command_running_semaphore);
 
     return 0;
@@ -135,7 +183,7 @@ uint8_t ms5607_02ba_read_adc(uint32_t *adc_value) {
   }
 }
 
-uint8_t ms5607_02ba_load_prom(void) { 
+uint8_t ms5607_02ba_load_prom(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     uint8_t data_buffer[2];
     
@@ -143,7 +191,7 @@ uint8_t ms5607_02ba_load_prom(void) {
       send_command(CMD_READ_REG(prom_addr));
       get_data(data_buffer, 2);
       
-      *((uint16_t *)&prom_data + prom_addr) = data_buffer[0] << 8 | data_buffer[1];
+      *((uint16_t *)&prom_data + prom_addr) = convert_buffer_16(data_buffer);
     }
     xSemaphoreGive(command_running_semaphore);
 
@@ -156,36 +204,73 @@ uint8_t ms5607_02ba_load_prom(void) {
 
 static void send_command(uint8_t cmd)
 {
-  op_buffer = &cmd;
+  *op_buffer = cmd;
   op_buffer_index = 0;
   op_buffer_len = 1;
-  is_op_write = true;
+  current_command_type = CMD_TYPE_WRITE;
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1;
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
 }
 
+static void send_command_async(uint8_t cmd, ms5607_02ba_callback_t callback) {
+  *op_buffer = cmd;
+  op_buffer_index = 0;
+  op_buffer_len = 1;
+  current_command_type = CMD_TYPE_WRITE_ASYNC;
+  current_op_callback = callback;
+  TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1;
+}
+
 static void get_data(uint8_t *buffer, uint8_t buffer_len) {
-  op_buffer = buffer;
   op_buffer_index = 0;
   op_buffer_len = buffer_len;
-  is_op_write = false;
+  current_command_type = CMD_TYPE_READ;
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1 | 0x1;
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
+  memcpy(op_buffer, buffer, buffer_len);
+}
+
+static inline uint32_t convert_buffer_24(uint8_t *buffer) {
+  return ((uint32_t)buffer[0] << 8*2) | ((uint32_t)buffer[1] << 8*1) | ((uint32_t)buffer[2] << 8*0);
+}
+
+static inline uint16_t convert_buffer_16(uint8_t *buffer) {
+  return ((uint16_t)buffer[0] << 8*1) | ((uint32_t)buffer[1] << 8*0);
 }
 
 /* Interrupts */
 ISR(TWIE_TWIM_vect) {
   if(op_buffer_index < op_buffer_len) {
-    TWI_MASTER.MASTER.DATA = op_buffer[op_buffer_index++];
-    if(is_op_write) {
-      TWI_MASTER.MASTER.DATA = op_buffer[op_buffer_index++];
-    }
-    else {
-      op_buffer[op_buffer_index++] = TWI_MASTER.MASTER.DATA;
+    switch(current_command_type) {
+      case CMD_TYPE_WRITE: \
+      case CMD_TYPE_WRITE_ASYNC: \
+        TWI_MASTER.MASTER.DATA = op_buffer[op_buffer_index++];
+        break;
+      case CMD_TYPE_READ: \
+      case CMD_TYPE_READ_ASYNC: \
+        op_buffer[op_buffer_index++] = TWI_MASTER.MASTER.DATA;
+        break;
     }
   }
   else {
-    xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
     TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc; // Send stop command
-  }  
+    switch(current_command_type) {
+      case CMD_TYPE_WRITE: \
+      case CMD_TYPE_READ: \
+        xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
+        break;
+      case CMD_TYPE_WRITE_ASYNC: \
+        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+        if(current_op_callback) {
+          current_op_callback();
+        }
+      case CMD_TYPE_READ_ASYNC: \
+        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+        const uint32_t data = convert_buffer_24(op_buffer);
+        xQueueSendToBackFromISR(aysnc_data_queue, &data, NULL);
+        if(current_op_callback) {
+          current_op_callback();
+        }
+    }
+  }
 }
