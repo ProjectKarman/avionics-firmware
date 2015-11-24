@@ -33,7 +33,6 @@ void blink2(void *p) {
 }
 
 int main(void)
-
 {	
 	board_init();
 

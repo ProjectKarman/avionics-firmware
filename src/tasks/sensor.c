@@ -29,6 +29,7 @@ static void sensor_task_loop(void *p) {
   ms5607_02ba_reset();
   ms5607_02ba_load_prom();
   
+  ms5607_02ba_read_async(NULL);
   for(;;) {
     
   }

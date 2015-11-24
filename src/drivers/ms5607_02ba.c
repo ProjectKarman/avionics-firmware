@@ -47,12 +47,14 @@
 // Misc
 #define SEMAPHORE_BLOCK_TIME 0
 #define ASYNC_QUEUE_DEPTH 3
+#define ASYNC_CMD_TYPE_MASK 0x2
+#define READ_CMD_TYPE_MASK 0x1
 
-#define lambda(l_ret_type, l_arguments, l_body)         \
-({                                                    \
-  l_ret_type l_anonymous_functions_name l_arguments   \
-  l_body                                            \
-  &l_anonymous_functions_name;                        \
+#define lambda(l_ret_type, l_arguments, l_body)      \
+({                                                   \
+  l_ret_type l_anonymous_functions_name l_arguments  \
+  l_body                                             \
+  &l_anonymous_functions_name;                       \
 })
 
 /* Private Types */
@@ -68,10 +70,10 @@ typedef struct {
 } prom_t;
 
 enum command_type {
-  CMD_TYPE_WRITE,
-  CMD_TYPE_WRITE_ASYNC,
-  CMD_TYPE_READ,
-  CMD_TYPE_READ_ASYNC
+  CMD_TYPE_WRITE = 0x0,
+  CMD_TYPE_WRITE_ASYNC = 0x2,
+  CMD_TYPE_READ = 0x1,
+  CMD_TYPE_READ_ASYNC = 0x3
 };
 
 /* Private Function Prototypes */
@@ -101,8 +103,9 @@ void ms5607_02ba_init(void) {
   PR.PRPE &= ~PR_TWI_bm; // Enabled TWI module clock
   
   TWI_MASTER.MASTER.BAUD = TWI_BAUD_REG;
-  TWI_MASTER.MASTER.CTRLA |= TWI_MASTER_ENABLE_bm | TWI_MASTER_WIEN_bm | TWI_MASTER_INTLVL_MED_gc;
-  TWI_MASTER.MASTER.CTRLB |= TWI_MASTER_QCEN_bm | TWI_MASTER_SMEN_bm;
+  TWI_MASTER.MASTER.CTRLA |= TWI_MASTER_ENABLE_bm | TWI_MASTER_WIEN_bm | 
+                             TWI_MASTER_RIEN_bm | TWI_MASTER_INTLVL_MED_gc;
+  //TWI_MASTER.MASTER.CTRLB |= TWI_MASTER_QCEN_bm | TWI_MASTER_SMEN_bm;
   TWI_MASTER.MASTER.STATUS |= TWI_MASTER_BUSSTATE_IDLE_gc;
   
   // OS Level Structures
@@ -117,9 +120,9 @@ void ms5607_02ba_init(void) {
 uint8_t ms5607_02ba_reset(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     send_command(CMD_RESET);
-    xSemaphoreGive(command_running_semaphore);
     vTaskDelay(DEVICE_RESET_DELAY);
-
+    xSemaphoreGive(command_running_semaphore);
+    
     return 0;
   }
   else {
@@ -250,7 +253,7 @@ static void get_data(uint8_t *buffer, uint8_t buffer_len) {
   current_command_type = CMD_TYPE_READ;
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1 | 0x1;
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
-  memcpy(op_buffer, buffer, buffer_len);
+  memcpy(buffer, op_buffer, buffer_len);
 }
 
 static void get_data_async(uint8_t read_len, ms5607_02ba_callback_t callback) {
@@ -270,40 +273,43 @@ static inline uint16_t convert_buffer_16(uint8_t *buffer) {
 
 /* Interrupts */
 ISR(TWIE_TWIM_vect) {
-  if(op_buffer_index < op_buffer_len) {
-    switch(current_command_type) {
-      case CMD_TYPE_WRITE: \
-      case CMD_TYPE_WRITE_ASYNC: \
-        TWI_MASTER.MASTER.DATA = op_buffer[op_buffer_index++];
-        break;
-      case CMD_TYPE_READ: \
-      case CMD_TYPE_READ_ASYNC: \
-        op_buffer[op_buffer_index++] = TWI_MASTER.MASTER.DATA;
-        break;
-    }
+  if(!(current_command_type & READ_CMD_TYPE_MASK) && (op_buffer_index < op_buffer_len)) {
+    // Write in process
+    TWI_MASTER.MASTER.DATA = op_buffer[op_buffer_index++];
+  }
+  else if((current_command_type & READ_CMD_TYPE_MASK) && (op_buffer_index < op_buffer_len - 1)) {
+    // Read in progress
+    op_buffer[op_buffer_index++] = TWI_MASTER.MASTER.DATA;
+    TWI_MASTER.MASTER.CTRLC = TWI_MASTER_CMD_RECVTRANS_gc;
   }
   else {
     TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc; // Send stop command
-    switch(current_command_type) {
-      case CMD_TYPE_WRITE: \
-      case CMD_TYPE_READ: \
-        xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
-        break;
-      case CMD_TYPE_WRITE_ASYNC: \
-        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
-        if(current_op_callback) {
-          current_op_callback();
-        }
-      case CMD_TYPE_READ_ASYNC: \
-        /* In this case the only time we are reading async is when we are getting
-         * ADC values.
-         */
-        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+    if(current_command_type & READ_CMD_TYPE_MASK) {
+      // Read last byte
+      op_buffer[op_buffer_index++] = TWI_MASTER.MASTER.DATA;
+    }
+    if(current_command_type & ASYNC_CMD_TYPE_MASK) {
+      // Async command finished
+      if(current_command_type == CMD_TYPE_READ_ASYNC) {
+        // Add this data to our async read queue
         const uint32_t data = convert_buffer_24(op_buffer);
         xQueueSendToBackFromISR(aysnc_data_queue, &data, NULL);
         if(current_op_callback) {
           current_op_callback();
         }
+        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+      }
+      else {
+        if(current_op_callback) {
+          current_op_callback();
+        }
+        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+      }
+    }
+    else {
+      // Sync command finished
+      xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
     }
   }
+  
 }
