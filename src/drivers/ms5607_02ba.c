@@ -1,5 +1,8 @@
-#include "MS5607_02BA.h"
+#include "ms5607_02ba.h"
 #include "asf.h"
+
+#include <stdbool.h>
+#include <stdint.h>
 
 // I2C Command Set
 #define CMD_RESET             0x1E
@@ -31,8 +34,9 @@
 #define SENS_MULTIPLICATIVE_OFFSET_1 65536 // 2^16
 #define SENS_MULTIPLICATIVE_OFFSET_2 128 // 2^7
 #define P_MULTIPLICATIVE_OFFSET_1 2097152 // 2^21
-#define P_MULTIPLICATIVE_OFFSET_2 32768 // 2^15
+#define P_MULTIPLICATIVE_OFFSET_2 32768 // 2^1
 
+/* Private Types */
 typedef struct {
   uint16_t manufacturer;
   uint16_t coefficient_1;
@@ -44,18 +48,27 @@ typedef struct {
   uint16_t crc;
 } prom_t;
 
-static prom_t prom_data;
-
+/* Private Function Prototypes */
 static void send_command(uint8_t cmd);
 static void get_data(uint8_t *buffer, uint8_t buffer_len);
+
+/* Private Variables */
+static prom_t prom_data;
+static uint8_t *op_buffer;
+static uint8_t op_buffer_len;
+static uint8_t op_buffer_index;
+static bool is_op_write;
 
 void ms5607_02ba_init(void) {
   TWI_MASTER_PORT.PIN0CTRL |= PORT_OPC_WIREDANDPULL_gc;
   TWI_MASTER_PORT.PIN1CTRL |= PORT_OPC_WIREDANDPULL_gc;
   
+  PR.PRPE &= ~PR_TWI_bm; // Enabled TWI module clock
   
-  TWI_MASTER.MASTER.BAUD = 35;
-  TWI_MASTER.MASTER.CTRLA |= TWI_MASTER_ENABLE_bm;
+  TWI_MASTER.MASTER.BAUD = TWI_BAUD_REG;
+  TWI_MASTER.MASTER.CTRLA |= TWI_MASTER_ENABLE_bm | TWI_MASTER_WIEN_bm | TWI_MASTER_INTLVL_MED_gc;
+  TWI_MASTER.MASTER.CTRLB |= TWI_MASTER_QCEN_bm | TWI_MASTER_SMEN_bm;
+  TWI_MASTER.MASTER.STATUS |= TWI_MASTER_BUSSTATE_IDLE_gc;
 }
 
 void ms5607_02ba_reset(void) {
@@ -107,7 +120,7 @@ void ms5607_02ba_read_adc(uint32_t *adc_value) {
   uint8_t buffer[3];
   send_command(CMD_ADC_READ);
   get_data(buffer, 3);
-  *adc_value = ((uintptr_t)buffer[2] << 8*2) | ((uintptr_t)buffer[1] << 8*1) | ((uintptr_t)buffer[0] << 8*0);
+  *adc_value = ((uint32_t)buffer[2] << 8*2) | ((uint32_t)buffer[1] << 8*1) | ((uint32_t)buffer[0] << 8*0);
 }
 
 void ms5607_02ba_read_prom(void) { 
@@ -123,35 +136,19 @@ void ms5607_02ba_read_prom(void) {
 
 static void send_command(uint8_t cmd)
 {
-  TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS;
-  
-  /*
-  twi_package_t packet = {
-    .addr         = {cmd}, // TWI slave memory address data
-    .addr_length  = 1,  // TWI slave memory address data size
-    .chip         = CHIP_ADDRESS, // TWI slave bus address
-    .buffer       = NULL,  // transfer data destination buffer
-    .length       = 0, // transfer buffer data size (bytes)
-    .no_wait      = false
-  };
-  
-  twi_master_write(&TWI_MASTER, &packet);
-  */
+  op_buffer = &cmd;
+  op_buffer_index = 0;
+  op_buffer_len = 1;
+  is_op_write = true;
+  TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1;
 }
 
 static void get_data(uint8_t *buffer, uint8_t buffer_len) {
-  /*
-  twi_package_t packet = {
-    .addr         = NULL, // TWI slave memory address data
-    .addr_length  = 0,  // TWI slave memory address data size
-    .chip         = DEVICE_ADDRESS, // TWI slave bus address
-    .buffer       = buffer,  // transfer data destination buffer
-    .length       = buffer_len, // transfer buffer data size (bytes)
-    .no_wait      = false
-  };
-  
-  twi_master_read(&TWI_MASTER, &packet);
-  */
+  op_buffer = buffer;
+  op_buffer_index = 0;
+  op_buffer_len = buffer_len;
+  is_op_write = false;
+  TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1 | 0x1;
 }
 
 rocket_temp_t ms5607_02ba_calculate_temp(uint32_t d2) {
@@ -175,4 +172,21 @@ rocket_press_t ms5607_02ba_calculate_press(uint32_t d1, uint32_t d2) {
   p = (((d1 * sens) / P_MULTIPLICATIVE_OFFSET_1) - off) / P_MULTIPLICATIVE_OFFSET_2;
   
   return p;
+}
+
+
+/* Interrupts */
+ISR(TWIE_TWIM_vect) {
+  if(op_buffer_index < op_buffer_len) {
+    TWI_MASTER.MASTER.DATA = op_buffer[op_buffer_index++];
+    if(is_op_write) {
+      TWI_MASTER.MASTER.DATA = op_buffer[op_buffer_index++];
+    }
+    else {
+      op_buffer[op_buffer_index++] = TWI_MASTER.MASTER.DATA;
+    }
+  }
+  else {
+    TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
+  }  
 }
