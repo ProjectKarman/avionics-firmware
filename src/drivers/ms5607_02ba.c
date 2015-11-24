@@ -50,13 +50,6 @@
 #define ASYNC_CMD_TYPE_MASK 0x2
 #define READ_CMD_TYPE_MASK 0x1
 
-#define lambda(l_ret_type, l_arguments, l_body)      \
-({                                                   \
-  l_ret_type l_anonymous_functions_name l_arguments  \
-  l_body                                             \
-  &l_anonymous_functions_name;                       \
-})
-
 /* Private Types */
 typedef struct {
   uint16_t manufacturer;
