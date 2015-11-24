@@ -1,8 +1,8 @@
 /*
  * ms5607_02ba.c
  *
- * Created: 11/24/2015 12:10:00 AM
- *  Author: Nigil Lee
+ * Created: 10/03/2015 11:55:36 PM
+ *  Author: Timothy Rupprecht
  */ 
 
 #include "ms5607_02ba.h"
@@ -48,6 +48,13 @@
 #define SEMAPHORE_BLOCK_TIME 0
 #define ASYNC_QUEUE_DEPTH 3
 
+#define lambda(l_ret_type, l_arguments, l_body)         \
+({                                                    \
+  l_ret_type l_anonymous_functions_name l_arguments   \
+  l_body                                            \
+  &l_anonymous_functions_name;                        \
+})
+
 /* Private Types */
 typedef struct {
   uint16_t manufacturer;
@@ -71,6 +78,7 @@ enum command_type {
 static void send_command(uint8_t cmd);
 static void send_command_async(uint8_t cmd, ms5607_02ba_callback_t callback);
 static void get_data(uint8_t *buffer, uint8_t buffer_len);
+static void get_data_async(uint8_t read_len, ms5607_02ba_callback_t callback);
 static uint32_t convert_buffer_24(uint8_t *buffer);
 static uint16_t convert_buffer_16(uint8_t *buffer);
 
@@ -83,6 +91,7 @@ static SemaphoreHandle_t command_complete_semaphore;
 static SemaphoreHandle_t command_running_semaphore;
 static QueueHandle_t aysnc_data_queue;
 static ms5607_02ba_callback_t current_op_callback;
+static ms5607_02ba_callback_t final_op_callback;
 static enum command_type current_command_type;
 
 void ms5607_02ba_init(void) {
@@ -183,6 +192,20 @@ uint8_t ms5607_02ba_read_adc(uint32_t *adc_value) {
   }
 }
 
+uint8_t ms5607_02ba_read_async(ms5607_02ba_callback_t callback) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    final_op_callback = callback;
+    send_command_async(CMD_ADC_READ, lambda(void, (void), {
+      get_data_async(2, final_op_callback);
+    }));
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
 uint8_t ms5607_02ba_load_prom(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     uint8_t data_buffer[2];
@@ -230,6 +253,13 @@ static void get_data(uint8_t *buffer, uint8_t buffer_len) {
   memcpy(op_buffer, buffer, buffer_len);
 }
 
+static void get_data_async(uint8_t read_len, ms5607_02ba_callback_t callback) {
+  op_buffer_index = 0;
+  op_buffer_len = read_len;
+  current_command_type = CMD_TYPE_READ_ASYNC;
+  TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1 | 0x1;
+}
+
 static inline uint32_t convert_buffer_24(uint8_t *buffer) {
   return ((uint32_t)buffer[0] << 8*2) | ((uint32_t)buffer[1] << 8*1) | ((uint32_t)buffer[2] << 8*0);
 }
@@ -265,6 +295,9 @@ ISR(TWIE_TWIM_vect) {
           current_op_callback();
         }
       case CMD_TYPE_READ_ASYNC: \
+        /* In this case the only time we are reading async is when we are getting
+         * ADC values.
+         */
         xSemaphoreGiveFromISR(command_running_semaphore, NULL);
         const uint32_t data = convert_buffer_24(op_buffer);
         xQueueSendToBackFromISR(aysnc_data_queue, &data, NULL);
