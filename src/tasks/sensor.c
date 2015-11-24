@@ -27,7 +27,7 @@ void sensor_start_task(void) {
 /* Private Functions */
 static void sensor_task_loop(void *p) {
   ms5607_02ba_reset();
-  ms5607_02ba_read_prom();
+  ms5607_02ba_load_prom();
   
   for(;;) {
     
