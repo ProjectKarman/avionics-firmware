@@ -6,9 +6,11 @@
 #include "asf.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "task.h"
 
 // Device Params
 #define DEVICE_ADDRESS 0x77
+#define DEVICE_RESET_DELAY 3
 
 // Device Command Set
 #define CMD_RESET             0x1E
@@ -83,6 +85,7 @@ uint8_t ms5607_02ba_reset(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     send_command(CMD_RESET);
     xSemaphoreGive(command_running_semaphore);
+    vTaskDelay(DEVICE_RESET_DELAY);
 
     return 0;
   }
