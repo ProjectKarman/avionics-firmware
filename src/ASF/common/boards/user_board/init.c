@@ -10,6 +10,7 @@
 #include <conf_board.h>
 #include "nrf24l01p.h"
 #include "ms5607_02ba.h"
+#include "fxls8471qr1.h"
 
 void board_init(void)
 {
@@ -23,4 +24,5 @@ void board_init(void)
   dma_enable();
   nrf24l01p_init();
   ms5607_02ba_init();
+  fxls8471qr1_init();
 }

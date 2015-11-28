@@ -14,10 +14,10 @@
 
 /* Public Types */
 enum fxls8471qr1_fifo_mode {
-	FXLS8471QR1_FIFO_OFF,
-	FXLS8471QR1_FIFO_CIRCULAR_BUFFER,
-	FXLS8471QR1_FIFO_STOP_ACCEPTING,
-	FXLS8471QR1_FIFO_TRIGGER,
+	FXLS8471QR1_FIFO_OFF = 0x0,
+	FXLS8471QR1_FIFO_CIRCULAR_BUFFER = 0x1,
+	FXLS8471QR1_FIFO_STOP_ACCEPTING = 0x2,
+	FXLS8471QR1_FIFO_TRIGGER = 0x3,
 };
 
 enum fxls8471qr1_fs_range {
@@ -70,9 +70,9 @@ typedef void (*fxls8471qr1_data_callback_t)(fxls8471qr1_raw_accel_t);
 
 /* Public Functions */
 void fxls8471qr1_init(void);
+uint8_t fxls8471qr1_setup_fifo_mode(enum fxls8471qr1_fifo_mode fifo_mode);
+uint8_t fxls8471qr1_setup_fifo_watermark(uint8_t watermark);
 /*
-void fxls8471qr1_setup_fifo_mode(enum fxls8471qr1_fifo_mode fifo_mode);
-void fxls8471qr1_setup_fifo_watermark(uint8_t watermark);
 void fxls8471qr1_setup_xyz_fs_range(enum fxls8471qr1_fs_range fs_range);
 void fxls8471qr1_setup_xyz_hp(bool hp_on);
 void fxls8471qr1_setup_ctrl_reg1_dr(enum fxls8471qr1_ctrl_reg1_dr data_rate);
