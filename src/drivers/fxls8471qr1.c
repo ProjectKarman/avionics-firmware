@@ -15,34 +15,34 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
-// IO Definitions
-#define SPI_CS_PIN		IOPORT_CREATE_PIN(PORTC, 4)
-#define SPI_MISO_PIN	IOPORT_CREATE_PIN(PORTC, 6)
-#define SPI_MOSI_PIN	IOPORT_CREATE_PIN(PORTC, 7)
-#define SPI_SCLK_PIN	IOPORT_CREATE_PIN(PORTC, 5)
+// Device Registers
+#define	REG_STATUS 0x00
+#define REG_OUT_X_MSB 0x01
+#define REG_OUT_X_LSB 0x02
+#define REG_OUT_Y_MSB 0x03
+#define REG_OUT_Y_LSB 0x04
+#define REG_OUT_Z_MSB 0x05
+#define REG_OUT_Z_LSB 0x06
+#define REG_F_SETUP 0x09
+#define REG_XYZ_DATA_CFG 0x0E
+#define REG_F_STATUS 0x10
+#define REG_CTRL_REG1 0x2A
+#define REG_CTRL_REG2 0x2B
+#define REG_CTRL_REG3 0x2C
+#define REG_CTRL_REG4 0x2D
+#define REG_CTRL_REG5 0x2E
 
-// registers
-#define	REG_STATUS				0x00
-#define REG_OUT_X_MSB			0x01
-#define REG_OUT_X_LSB			0x02
-#define REG_OUT_Y_MSB			0x03
-#define REG_OUT_Y_LSB			0x04
-#define REG_OUT_Z_MSB			0x05
-#define REG_OUT_Z_LSB			0x06
-#define REG_F_SETUP				0x09
-#define REG_XYZ_DATA_CFG		0x0E
-#define REG_F_STATUS			0x10
-#define REG_CTRL_REG1			0x2A
-#define REG_CTRL_REG2			0x2B
-#define REG_CTRL_REG3			0x2C
-#define REG_CTRL_REG4			0x2D
-#define REG_CTRL_REG5			0x2E
-
-// commands
+// Device Commands
 #define SPICMD_W_REGISTER_MSB(reg) (0x80 | reg)
 #define SPICMD_W_REGISTER_LSB(reg) (reg)
 #define SPICMD_R_REGISTER_MSB(reg) (reg & ~0x80)
 #define SPICMD_R_REGISTER_LSB(reg) (reg)
+
+// IO Definitions
+#define SPI_CS_PIN IOPORT_CREATE_PIN(PORTC, 4)
+#define SPI_MISO_PIN IOPORT_CREATE_PIN(PORTC, 6)
+#define SPI_MOSI_PIN IOPORT_CREATE_PIN(PORTC, 7)
+#define SPI_SCLK_PIN IOPORT_CREATE_PIN(PORTC, 5)
 
 // USART Peripheral
 #define SPI_CNTL USARTC1
