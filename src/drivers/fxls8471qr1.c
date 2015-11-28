@@ -84,7 +84,7 @@
 #define USART_BSEL (F_PER / (2 * DESIRED_BITRATE) - 1)
 
 // Misc
-#define OP_BUFFER_LEN 5
+#define OP_BUFFER_LEN 8
 #define ASYNC_CMD_TYPE_MASK 0x2
 #define READ_CMD_TYPE_MASK 0x1
 #define DUMMY_DATA 0xff
@@ -102,8 +102,10 @@ static void spi_startframe(void);
 static void spi_endframe(void);
 static void write_register_single(uint8_t address, uint8_t values);
 static void write_register(uint8_t address, uint8_t *values, uint8_t len);
+static void write_register_async(uint8_t address, uint8_t *buffer, uint8_t len, fxls8471qr1_callback_t callback);
 static void read_register_single(uint8_t address, uint8_t *buffer);
 static void read_register(uint8_t address, uint8_t *buffer, uint8_t len);
+static void read_register_async(uint8_t address, uint8_t *buffer, uint8_t len, fxls8471qr1_data_callback_t callback);
 
 /* Private Variables */
 static uint8_t local_fifo_config;
@@ -111,7 +113,8 @@ static uint8_t local_xyz_data_config;
 static uint8_t local_ctrl_reg1_config;
 static uint8_t local_ctrl_reg4_config;
 static uint8_t local_ctrl_reg5_config;
-static fxls8471qr1_callback_t current_function_callback;
+static fxls8471qr1_callback_t write_function_callback;
+static fxls8471qr1_data_callback_t read_function_callback;
 static uint8_t op_buffer[OP_BUFFER_LEN];
 static uint8_t op_len;
 static uint8_t op_buffer_index;
@@ -356,6 +359,20 @@ static void write_register(uint8_t address, uint8_t *buffer, uint8_t len) {
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
 }
 
+static void write_register_async(uint8_t address, uint8_t *buffer, uint8_t len, fxls8471qr1_callback_t callback) {
+  write_function_callback = callback;
+  op_buffer[0] = SPICMD_W_REGISTER_MSB(address);
+  op_buffer[1] = SPICMD_W_REGISTER_LSB(address);
+  memcpy(op_buffer + 2, buffer, len);
+  op_len = len + 2;
+  op_buffer_index = 0;
+  op_type = CMD_TYPE_WRITE_ASYNC;
+  
+  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc | USART_TXCINTLVL_MED_gc;
+  spi_startframe();
+  SPI_CNTL.DATA = op_buffer[0];
+}
+
 static inline void read_register_single(uint8_t address, uint8_t *buffer) {
   read_register(address, buffer, 1);
 }
@@ -363,7 +380,6 @@ static inline void read_register_single(uint8_t address, uint8_t *buffer) {
 static void read_register(uint8_t address, uint8_t *buffer, uint8_t len) {
   op_buffer[0] = SPICMD_R_REGISTER_MSB(address);
   op_buffer[1] = SPICMD_R_REGISTER_LSB(address);
-  memcpy(op_buffer + 2, buffer, len);
   op_len = len + 2;
   op_buffer_index = 0;
   op_type = CMD_TYPE_READ;
@@ -374,19 +390,43 @@ static void read_register(uint8_t address, uint8_t *buffer, uint8_t len) {
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
 }
 
+static void read_register_async(uint8_t address, uint8_t *buffer, uint8_t len, fxls8471qr1_data_callback_t callback) {
+  read_function_callback = callback;
+  op_buffer[0] = SPICMD_R_REGISTER_MSB(address);
+  op_buffer[1] = SPICMD_R_REGISTER_LSB(address);
+  op_len = len + 2;
+  op_buffer_index = 0;
+  op_type = CMD_TYPE_READ_ASYNC;
+  
+  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc | USART_TXCINTLVL_MED_gc;
+  spi_startframe();
+  SPI_CNTL.DATA = op_buffer[0];
+}
+
 ISR(USARTC1_TXC_vect) {
   if(op_type & ASYNC_CMD_TYPE_MASK) {
     // Async Command
     spi_endframe();
-    xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
+    xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+    if((op_type & READ_CMD_TYPE_MASK) && read_function_callback) {
+      /*
+       * Here we are assuming that the read async functionality will only
+       * be used to read data off the accel
+       */
+      fxls8471qr1_raw_accel_t data;
+      data.x = op_buffer[REG_OUT_X_MSB] << 8 | op_buffer[REG_OUT_X_LSB];
+      data.y = op_buffer[REG_OUT_Y_MSB] << 8 | op_buffer[REG_OUT_Y_LSB];
+      data.z = op_buffer[REG_OUT_Z_MSB] << 8 | op_buffer[REG_OUT_Z_LSB];
+      read_function_callback(data); // Read Async Call
+    }
+    else if(write_function_callback) {
+      write_function_callback(); // Write Async Call
+    }
   }
   else {
     // Sync Command
     spi_endframe();
-    xSemaphoreGiveFromISR(command_running_semaphore, NULL);
-    if(current_function_callback) {
-      current_function_callback();
-    }
+    xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
   }
 }
 

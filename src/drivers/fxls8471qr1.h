@@ -9,12 +9,10 @@
 #ifndef FXLS8471QR1_H_
 #define FXLS8471QR1_H_
 
-
 #include <stdint.h>
 #include <string.h>
 
-typedef void (*fxls8471qr1_callback_t)(void);
-
+/* Public Types */
 enum fxls8471qr1_fifo_mode {
 	FXLS8471QR1_FIFO_OFF,
 	FXLS8471QR1_FIFO_CIRCULAR_BUFFER,
@@ -62,11 +60,15 @@ enum fxls8471qr1_ctrl_reg5_interrupt_route {
 };
 
 typedef struct {
-	int16_t x;
-	int16_t y;
-	int16_t z;
-} XYZ_DATA;
+	uint16_t x;
+	uint16_t y;
+	uint16_t z;
+} fxls8471qr1_raw_accel_t;
 
+typedef void (*fxls8471qr1_callback_t)(void);
+typedef void (*fxls8471qr1_data_callback_t)(fxls8471qr1_raw_accel_t);
+
+/* Public Functions */
 void fxls8471qr1_init(void);
 /*
 void fxls8471qr1_setup_fifo_mode(enum fxls8471qr1_fifo_mode fifo_mode);
