@@ -13,6 +13,8 @@
 #include <stdint.h>
 #include <string.h>
 
+typedef void (*fxls8471qr1_callback_t)(void);
+
 enum fxls8471qr1_fifo_mode {
 	FXLS8471QR1_FIFO_OFF,
 	FXLS8471QR1_FIFO_CIRCULAR_BUFFER,
@@ -66,10 +68,7 @@ typedef struct {
 } XYZ_DATA;
 
 void fxls8471qr1_init(void);
-
-void fxls8471qr1_write_register(uint8_t address, uint8_t new_value);
-void fxls8471qr1_read_register(uint8_t address, uint8_t *reg_value);
-void fxls8471qr1_read_packet(uint8_t address, uint8_t *reg_value, int len);
+/*
 void fxls8471qr1_setup_fifo_mode(enum fxls8471qr1_fifo_mode fifo_mode);
 void fxls8471qr1_setup_fifo_watermark(uint8_t watermark);
 void fxls8471qr1_setup_xyz_fs_range(enum fxls8471qr1_fs_range fs_range);
@@ -78,6 +77,6 @@ void fxls8471qr1_setup_ctrl_reg1_dr(enum fxls8471qr1_ctrl_reg1_dr data_rate);
 void fxls8471qr1_setup_ctrl_reg4_interrupt_enable(enum fxls8471qr1_ctrl_reg4_interrupt interrupt, bool enable);
 void fxls8471qr1_setup_ctrl_reg5_interrupt_route_toggle(enum fxls8471qr1_ctrl_reg5_interrupt_route route, bool pin);
 void fxls8471qr1_record_latest_xyz_data(XYZ_DATA *xyzAccelData, int fifoReadNum);
- 
+*/
  
 #endif /* FXLS8471QR1_H_ */
