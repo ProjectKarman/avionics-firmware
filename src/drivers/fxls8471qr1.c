@@ -77,7 +77,6 @@ static void read_register(uint8_t address, uint8_t *buffer, uint8_t len);
 static void read_register_async(uint8_t address, uint8_t *buffer, uint8_t len, fxls8471qr1_data_callback_t callback);
 
 /* Private Variables */
-//static uint8_t local_fifo_config;
 static union {
   struct {
     uint8_t f_wmrk : 6;
@@ -253,8 +252,6 @@ uint8_t fxls8471qr1_get_data(fxls8471qr1_raw_accel_t *data) {
     return 1;
   }
 }
-
-
 
 /* Private Functions */
 static inline void spi_startframe(void){
