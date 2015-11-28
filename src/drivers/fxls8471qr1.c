@@ -7,6 +7,8 @@
 
 #include "fxls8471qr1.h"
 
+#include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include "asf.h"
@@ -36,40 +38,11 @@
 #define REG_CTRL_REG4			0x2D
 #define REG_CTRL_REG5			0x2E
 
-// data read length for accel
-#define DATA_READ_LENGTH		6
-
 // commands
 #define SPICMD_W_REGISTER_MSB(reg) (0x80 | reg)
 #define SPICMD_W_REGISTER_LSB(reg) (reg)
 #define SPICMD_R_REGISTER_MSB(reg) (reg & ~0x80)
 #define SPICMD_R_REGISTER_LSB(reg) (reg)
-
-// DR setup reg bits
-#define DR_800_HZ 0x00
-#define DR_400_HZ 0x08
-#define DR_200_HZ 0x10
-#define DR_100_HZ 0x18
-#define DR_50_HZ 0x20
-#define DR_12_5_HZ 0x28
-#define DR_6_25_HZ 0x30
-#define DR_1_5625_HZ 0x38
-
-//fs range bits
-#define FS_RANGE_244 0x00
-#define FS_RANGE_488 0x01
-#define FS_RANGE_976 0x02
-
-//Each bit is on
-#define EIGHTH_BIT_ON 0x80
-#define SEVENTH_BIT_ON 0x40
-#define SIXTH_BIT_ON 0x20
-#define FIFTH_BIT_ON 0x10
-#define FOURTH_BIT_ON 0x08
-#define THIRD_BIT_ON 0x04
-#define SECOND_BIT_ON 0x02
-#define FIRST_BIT_ON 0x01
-
 
 // USART Peripheral
 #define SPI_CNTL USARTC1
@@ -79,6 +52,7 @@
 
 // Misc
 #define OP_BUFFER_LEN 8
+#define DATA_READ_LENGTH 7
 #define SEMAPHORE_BLOCK_TIME 0
 #define ASYNC_CMD_TYPE_MASK 0x2
 #define READ_CMD_TYPE_MASK 0x1
@@ -104,16 +78,31 @@ static void read_register_async(uint8_t address, uint8_t *buffer, uint8_t len, f
 
 /* Private Variables */
 //static uint8_t local_fifo_config;
-static union
-{
+static union {
   struct {
     uint8_t f_wmrk : 6;
     uint8_t f_mode : 2;
   };
   uint8_t raw;
 } local_f_setup;
-static uint8_t local_xyz_data_config;
-static uint8_t local_ctrl_reg1_config;
+static union {
+  struct {
+    uint8_t fs : 2;
+    uint8_t pad0 : 2;
+    uint8_t hpf_out : 1;
+  };
+  uint8_t raw;
+} local_xyz_data_config;
+static union {
+  struct {
+    uint8_t active : 1;
+    uint8_t f_read : 1;
+    uint8_t lnoise : 1;
+    uint8_t dr : 3;
+    uint8_t aslp_rate : 2;
+  };
+  uint8_t raw;  
+} local_ctrl_reg1_config;
 static uint8_t local_ctrl_reg4_config;
 static uint8_t local_ctrl_reg5_config;
 static fxls8471qr1_callback_t write_function_callback;
@@ -126,7 +115,8 @@ static SemaphoreHandle_t command_complete_semaphore;
 static SemaphoreHandle_t command_running_semaphore;
 
 /* Public Functions */
-void fxls8471qr1_init() {
+void fxls8471qr1_init()
+{
   // Config GPIO
 	ioport_set_pin_dir(SPI_CS_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_dir(SPI_MISO_PIN, IOPORT_DIR_INPUT);
@@ -147,7 +137,8 @@ void fxls8471qr1_init() {
   command_complete_semaphore = xSemaphoreCreateBinary();
 }
 
-uint8_t fxls8471qr1_setup_fifo_mode(enum fxls8471qr1_fifo_mode fifo_mode) {
+uint8_t fxls8471qr1_set_fifo_mode(enum fxls8471qr1_fifo_mode fifo_mode)
+{
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     local_f_setup.f_mode = fifo_mode;
     write_register_single(REG_F_SETUP, local_f_setup.raw);
@@ -160,7 +151,8 @@ uint8_t fxls8471qr1_setup_fifo_mode(enum fxls8471qr1_fifo_mode fifo_mode) {
   }
 }  
 
-uint8_t fxls8471qr1_setup_fifo_watermark(uint8_t watermark) {
+uint8_t fxls8471qr1_set_fifo_watermark(uint8_t watermark)
+{
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     local_f_setup.f_wmrk = watermark;
     write_register_single(REG_F_SETUP, local_f_setup.raw);
@@ -173,166 +165,96 @@ uint8_t fxls8471qr1_setup_fifo_watermark(uint8_t watermark) {
   }
 }
 
+uint8_t fxls8471qr1_set_fs_range(enum fxls8471qr1_fs_range fs_range)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_xyz_data_config.fs = fs_range;
+    write_register_single(REG_F_SETUP, local_xyz_data_config.raw);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t fxls8471qr1_set_hp_filter(bool is_enabled)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_xyz_data_config.hpf_out = is_enabled;
+    write_register_single(REG_XYZ_DATA_CFG, local_xyz_data_config.raw);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t fxls8471qr1_set_data_rate(enum fxls8471qr1_data_rate data_rate)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_ctrl_reg1_config.dr = data_rate;
+    write_register_single(REG_CTRL_REG1, local_ctrl_reg1_config.raw);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t fxls8471qr1_set_interrupts(fxls8471qr1_bitfield_t bitfield)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_ctrl_reg4_config = bitfield;
+    write_register_single(REG_CTRL_REG4, local_ctrl_reg4_config);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
 /*
-void fxls8471qr1_setup_xyz_fs_range(enum fxls8471qr1_fs_range fs_range){
-	local_xyz_data_config &= 0x10;
-	switch(fs_range){
-		case FXLS8471QR1_FS_RANGE_244
-			local_xyz_data_config |= FS_RANGE_244;
-			break;
-		case FXLS8471QR1_FS_RANGE_488
-			local_xyz_data_config |= FS_RANGE_488;
-			break;
-		case FXLS8471QR1_FS_RANGE_976
-			local_xyz_data_config |= FS_RANGE_976;
-			break;
-	}
-	fxls8471qr1_write_register(REG_XYZ_DATA_CFG, local_xyz_data_config);
+ * Set interrupt flags will use INT1 pin, other will use INT2
+ */
+uint8_t fxls8471qr1_set_interrupt_route(fxls8471qr1_bitfield_t bitfield)
+{
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_ctrl_reg5_config = bitfield;
+    write_register_single(REG_CTRL_REG5, local_ctrl_reg5_config);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
 }
 
-void fxls8471qr1_setup_xyz_hp(bool hp_on){
-	local_xyz_data_config &= 0x0F;
-	if(hp_on)
-		local_xyz_data_config |= FIFTH_BIT_ON;
-	fxls8471qr1_write_register(REG_XYZ_DATA_CFG, local_xyz_data_config);
+uint8_t fxls8471qr1_get_data(fxls8471qr1_raw_accel_t *data) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    uint8_t buffer[DATA_READ_LENGTH];
+    read_register(REG_STATUS, buffer, DATA_READ_LENGTH);
+    data->x = buffer[REG_OUT_X_MSB] << 6 | buffer[REG_OUT_X_LSB];
+    data->y = buffer[REG_OUT_Y_MSB] << 6 | buffer[REG_OUT_Y_LSB];
+    data->z = buffer[REG_OUT_Z_MSB] << 6 | buffer[REG_OUT_Z_LSB];
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
 }
 
-void fxls8471qr1_setup_ctrl_reg1_dr(enum fxls8471qr1_ctrl_reg1_dr data_rate){
-	local_ctrl_reg1_config &= 0xC7;
-	switch(data_rate){
-		case FXLS8471QR1_DR_800_HZ
-			local_ctrl_reg1_config |= DR_800_HZ;
-			break;
-		case FXLS8471QR1_DR_400_HZ
-			local_ctrl_reg1_config |= DR_400_HZ;
-			break;
-		case FXLS8471QR1_DR_200_HZ
-			local_ctrl_reg1_config |= DR_200_HZ;
-			break;
-		case FXLS8471QR1_DR_100_HZ
-			local_ctrl_reg1_config |= DR_100_HZ;
-			break;
-		case FXLS8471QR1_DR_50_HZ
-			local_ctrl_reg1_config |= DR_50_HZ;
-			break;
-		case FXLS8471QR1_DR_12_5_HZ
-			local_ctrl_reg1_config |= DR_12_5_HZ;
-			break;
-		case FXLS8471QR1_DR_6_25_HZ
-			local_ctrl_reg1_config |= DR_6_25_HZ;
-			break;
-		case FXLS8471QR1_DR_1_5625_HZ
-			local_ctrl_reg1_config |= DR_1_5625_HZ;
-			break;
-	}
-	fxls8471qr1_write_register(REG_CTRL_REG1, local_ctrl_reg1_config);
-}
 
-void fxls8471qr1_setup_ctrl_reg4_interrupt_enable(enum fxls8471qr1_ctrl_reg4_interrupt interrupt, bool enable){
-	switch(interrupt){
-		case FXLS8471QR1_INTERRUPT_ASLP
-			local_ctrl_reg4_config &= ~EIGHTH_BIT_ON;
-			if (enable)
-				local_ctrl_reg4_config |= EIGHTH_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_FIFO
-			local_ctrl_reg4_config &= ~SEVENTH_BIT_ON;
-			if (enable)
-				local_ctrl_reg4_config |= SEVENTH_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_TRANS
-			local_ctrl_reg4_config &= ~SIXTH_BIT_ON;
-			if (enable)
-				local_ctrl_reg4_config |= SIXTH_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_LNDPRT
-			local_ctrl_reg4_config &= ~FIFTH_BIT_ON;
-			if (enable)
-				local_ctrl_reg4_config |= FIFTH_BIT_ON;
-;
-			break;
-		case FXLS8471QR1_INTERRUPT_PULSE
-			local_ctrl_reg4_config &= ~FOURTH_BIT_ON;
-			if (enable)
-				local_ctrl_reg4_config |= FOURTH_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_FFMT
-			local_ctrl_reg4_config &= ~THIRD_BIT_ON;
-			if (enable)
-				local_ctrl_reg4_config |= THIRD_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_A_VECM
-			local_ctrl_reg4_config &= ~SECOND_BIT_ON;
-			if (enable)
-				local_ctrl_reg4_config |= SECOND_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_DRDY
-			local_ctrl_reg4_config &= ~FIRST_BIT_ON;
-			if (enable)
-				local_ctrl_reg4_config |= ~FIRST_BIT_ON;
-			break;
-	};
-	fxls8471qr1_write_register(REG_CTRL_REG4, local_ctrl_reg4_config);
-}
-
-//pin is true, INT1 pin
-//pin is false, INT2 pin
-void fxls8471qr1_setup_ctrl_reg5_interrupt_route_toggle(enum fxls8471qr1_ctrl_reg5_interrupt_route route, bool pin){
-	switch(route){
-		case FXLS8471QR1_INTERRUPT_RT_ASLP
-			local_ctrl_reg5_config &= ~EIGHTH_BIT_ON;
-			if (pin)
-				local_ctrl_reg5_config |= EIGHTH_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_RT_FIFO
-			local_ctrl_reg5_config &= ~SEVENTH_BIT_ON;
-			if (pin)
-				local_ctrl_reg5_config |= SEVENTH_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_RT_TRANS
-			local_ctrl_reg5_config &= ~SIXTH_BIT_ON;
-			if (pin)
-				local_ctrl_reg5_config |= SIXTH_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_RT_LNDPRT
-			local_ctrl_reg5_config &= ~FIFTH_BIT_ON;
-			if (pin)
-				local_ctrl_reg5_config |= FIFTH_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_RT_PULSE
-			local_ctrl_reg5_config &= ~FOURTH_BIT_ON;
-			if (pin)
-				local_ctrl_reg5_config |= FOURTH_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_RT_FFMT
-			local_ctrl_reg5_config &= ~THIRD_BIT_ON;
-			if (pin)
-				local_ctrl_reg5_config |= THIRD_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_RT_A_VECM
-			local_ctrl_reg5_config &= ~SECOND_BIT_ON;
-			if (pin)
-				local_ctrl_reg5_config |= SECOND_BIT_ON;
-			break;
-		case FXLS8471QR1_INTERRUPT_RT_DRDY
-			local_ctrl_reg5_config &= ~FIRST_BIT_ON;
-			if (pin)
-				local_ctrl_reg5_config |= FIRST_BIT_ON;
-			break;
-	};
-	fxls8471qr1_write_register(REG_CTRL_REG5, local_ctrl_reg5_config);
-}
-
-void fxls8471qr1_record_latest_xyz_data(XYZ_DATA *xyzAccelData, int fifoReadNum){
-	uint8_t Buffer[DATA_READ_LENGTH];
-	for(int i = 0; i < fifoReadNum; i++){
-		fxls8471qr1_read_packet(REG_OUT_X_MSB, Buffer, DATA_READ_LENGTH);
-		xyzAccelData->x = ((Buffer[0] << 8) | Buffer[1]) >> 2;
-		xyzAccelData->y = ((Buffer[2] << 8) | Buffer[3]) >> 2;
-		xyzAccelData->z = ((Buffer[4] << 8) | Buffer[5]) >> 2;
-	}
-}
-*/
 
 /* Private Functions */
 static inline void spi_startframe(void){
@@ -416,9 +338,9 @@ ISR(USARTC1_TXC_vect) {
        * be used to read data off the accel
        */
       fxls8471qr1_raw_accel_t data;
-      data.x = op_buffer[REG_OUT_X_MSB] << 8 | op_buffer[REG_OUT_X_LSB];
-      data.y = op_buffer[REG_OUT_Y_MSB] << 8 | op_buffer[REG_OUT_Y_LSB];
-      data.z = op_buffer[REG_OUT_Z_MSB] << 8 | op_buffer[REG_OUT_Z_LSB];
+      data.x = op_buffer[REG_OUT_X_MSB] << 6 | op_buffer[REG_OUT_X_LSB];
+      data.y = op_buffer[REG_OUT_Y_MSB] << 6 | op_buffer[REG_OUT_Y_LSB];
+      data.z = op_buffer[REG_OUT_Z_MSB] << 6 | op_buffer[REG_OUT_Z_LSB];
       read_function_callback(data); // Read Async Call
     }
     else if(write_function_callback) {
