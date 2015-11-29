@@ -69,12 +69,13 @@ enum command_type {
 /* Private Function Prototypes */
 static void spi_startframe(void);
 static void spi_endframe(void);
+static void raw_accel_pack_from_buffer(fxls8471qr1_raw_accel_t *raw_accel, uint8_t *buffer);
 static void write_register_single(uint8_t address, uint8_t values);
 static void write_register(uint8_t address, uint8_t *values, uint8_t len);
 static void write_register_async(uint8_t address, uint8_t *buffer, uint8_t len, fxls8471qr1_callback_t callback);
-static void read_register_single(uint8_t address, uint8_t *buffer);
-static void read_register(uint8_t address, uint8_t *buffer, uint8_t len);
-static void read_register_async(uint8_t address, uint8_t *buffer, uint8_t len, fxls8471qr1_data_callback_t callback);
+static void read_register_single(uint8_t address);
+static void read_register(uint8_t address, uint8_t len);
+static void read_register_async(uint8_t address, uint8_t len, fxls8471qr1_data_callback_t callback);
 
 /* Private Variables */
 static union {
@@ -239,11 +240,8 @@ uint8_t fxls8471qr1_set_interrupt_route(fxls8471qr1_bitfield_t bitfield)
 
 uint8_t fxls8471qr1_get_data(fxls8471qr1_raw_accel_t *data) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    uint8_t buffer[DATA_READ_LENGTH];
-    read_register(REG_STATUS, buffer, DATA_READ_LENGTH);
-    data->x = buffer[REG_OUT_X_MSB] << 6 | buffer[REG_OUT_X_LSB];
-    data->y = buffer[REG_OUT_Y_MSB] << 6 | buffer[REG_OUT_Y_LSB];
-    data->z = buffer[REG_OUT_Z_MSB] << 6 | buffer[REG_OUT_Z_LSB];
+    read_register(REG_STATUS, DATA_READ_LENGTH);
+    raw_accel_pack_from_buffer(data, op_buffer);
     xSemaphoreGive(command_running_semaphore);
 
     return 0;
@@ -260,6 +258,12 @@ static inline void spi_startframe(void){
 
 static inline void spi_endframe(void){
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_HIGH);
+}
+
+static inline void raw_accel_pack_from_buffer(fxls8471qr1_raw_accel_t *raw_accel, uint8_t *buffer) {
+  raw_accel->x = (uint16_t)buffer[REG_OUT_X_MSB] << 6 | (uint16_t)buffer[REG_OUT_X_LSB];
+  raw_accel->y = (uint16_t)buffer[REG_OUT_Y_MSB] << 6 | (uint16_t)buffer[REG_OUT_Y_LSB];
+  raw_accel->z = (uint16_t)buffer[REG_OUT_Z_MSB] << 6 | (uint16_t)buffer[REG_OUT_Z_LSB];
 }
 
 static inline void write_register_single(uint8_t address, uint8_t values) {
@@ -294,11 +298,11 @@ static void write_register_async(uint8_t address, uint8_t *buffer, uint8_t len, 
   SPI_CNTL.DATA = op_buffer[0];
 }
 
-static inline void read_register_single(uint8_t address, uint8_t *buffer) {
-  read_register(address, buffer, 1);
+static inline void read_register_single(uint8_t address) {
+  read_register(address, 1);
 }
 
-static void read_register(uint8_t address, uint8_t *buffer, uint8_t len) {
+static void read_register(uint8_t address, uint8_t len) {
   op_buffer[0] = SPICMD_R_REGISTER_MSB(address);
   op_buffer[1] = SPICMD_R_REGISTER_LSB(address);
   op_len = len + 2;
@@ -311,7 +315,7 @@ static void read_register(uint8_t address, uint8_t *buffer, uint8_t len) {
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
 }
 
-static void read_register_async(uint8_t address, uint8_t *buffer, uint8_t len, fxls8471qr1_data_callback_t callback) {
+static void read_register_async(uint8_t address, uint8_t len, fxls8471qr1_data_callback_t callback) {
   read_function_callback = callback;
   op_buffer[0] = SPICMD_R_REGISTER_MSB(address);
   op_buffer[1] = SPICMD_R_REGISTER_LSB(address);
@@ -335,9 +339,7 @@ ISR(USARTC1_TXC_vect) {
        * be used to read data off the accel
        */
       fxls8471qr1_raw_accel_t data;
-      data.x = op_buffer[REG_OUT_X_MSB] << 6 | op_buffer[REG_OUT_X_LSB];
-      data.y = op_buffer[REG_OUT_Y_MSB] << 6 | op_buffer[REG_OUT_Y_LSB];
-      data.z = op_buffer[REG_OUT_Z_MSB] << 6 | op_buffer[REG_OUT_Z_LSB];
+      raw_accel_pack_from_buffer(&data, op_buffer);
       read_function_callback(data); // Read Async Call
     }
     else if(write_function_callback) {
