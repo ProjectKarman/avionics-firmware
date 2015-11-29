@@ -118,11 +118,11 @@ static SemaphoreHandle_t command_running_semaphore;
 void fxls8471qr1_init()
 {
   // Config GPIO
-	ioport_set_pin_dir(SPI_CS_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_dir(SPI_MISO_PIN, IOPORT_DIR_INPUT);
-	ioport_set_pin_dir(SPI_MOSI_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_dir(SPI_SCLK_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_HIGH);
+  ioport_set_pin_dir(SPI_CS_PIN, IOPORT_DIR_OUTPUT);
+  ioport_set_pin_dir(SPI_MISO_PIN, IOPORT_DIR_INPUT);
+  ioport_set_pin_dir(SPI_MOSI_PIN, IOPORT_DIR_OUTPUT);
+  ioport_set_pin_dir(SPI_SCLK_PIN, IOPORT_DIR_OUTPUT);
+  ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_HIGH);
   
   // Configure USART
   sysclk_enable_module(SYSCLK_PORT_C, PR_USART1_bm);
