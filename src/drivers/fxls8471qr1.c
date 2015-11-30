@@ -48,7 +48,7 @@
 #define SPI_CNTL USARTC1
 #define F_PER 32000000
 #define DESIRED_BITRATE 10000000
-#define USART_BSEL (F_PER / (2 * DESIRED_BITRATE) - 1)
+#define USART_BSEL 15 // (F_PER / (2 * DESIRED_BITRATE) - 1)
 
 // Misc
 #define OP_BUFFER_LEN 8
@@ -126,8 +126,12 @@ void fxls8471qr1_init()
   
   // Configure USART
   sysclk_enable_module(SYSCLK_PORT_C, PR_USART1_bm);
+  SPI_CNTL.CTRLA |= USART_TXCINTLVL_MED_gc;
+  SPI_CNTL.CTRLB |= USART_TXEN_bm | USART_RXEN_bm;
   SPI_CNTL.CTRLC |= USART_CMODE_MSPI_gc;
+  SPI_CNTL.CTRLC &= ~(USART_CHSIZE2_bp | USART_CHSIZE2_bm);
   SPI_CNTL.BAUDCTRLA = USART_BSEL;
+  
   
   // Config OS Level Structures
   command_running_semaphore = xSemaphoreCreateBinary();
@@ -278,9 +282,8 @@ static void write_register(uint8_t address, uint8_t *buffer, uint8_t len) {
   op_buffer_index = 0;
   op_type = CMD_TYPE_WRITE;
   
-  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc | USART_TXCINTLVL_MED_gc;
   spi_startframe();
-  SPI_CNTL.DATA = op_buffer[0];
+  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc; 
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
 }
 
@@ -293,9 +296,8 @@ static void write_register_async(uint8_t address, uint8_t *buffer, uint8_t len, 
   op_buffer_index = 0;
   op_type = CMD_TYPE_WRITE_ASYNC;
   
-  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc | USART_TXCINTLVL_MED_gc;
   spi_startframe();
-  SPI_CNTL.DATA = op_buffer[0];
+  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc;
 }
 
 static inline void read_register_single(uint8_t address) {
@@ -309,9 +311,8 @@ static void read_register(uint8_t address, uint8_t len) {
   op_buffer_index = 0;
   op_type = CMD_TYPE_READ;
   
-  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc | USART_TXCINTLVL_MED_gc;
   spi_startframe();
-  SPI_CNTL.DATA = op_buffer[0];
+  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc;
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
 }
 
@@ -323,9 +324,8 @@ static void read_register_async(uint8_t address, uint8_t len, fxls8471qr1_data_c
   op_buffer_index = 0;
   op_type = CMD_TYPE_READ_ASYNC;
   
-  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc | USART_TXCINTLVL_MED_gc;
   spi_startframe();
-  SPI_CNTL.DATA = op_buffer[0];
+  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc;
 }
 
 ISR(USARTC1_TXC_vect) {
@@ -354,8 +354,7 @@ ISR(USARTC1_TXC_vect) {
 }
 
 ISR(USARTC1_DRE_vect) {
-  op_buffer_index++;
-  if(op_buffer_index == 1) {
+  if(op_buffer_index <= 1) {
     // Send Command LSB
     SPI_CNTL.DATA = op_buffer[op_buffer_index];
   }
@@ -376,7 +375,7 @@ ISR(USARTC1_DRE_vect) {
       else {
         // End Read
         op_buffer[op_buffer_index - 2] = SPI_CNTL.DATA;
-        SPI_CNTL.STATUS |= USART_DREIF_bm;
+        SPI_CNTL.CTRLA &= ~USART_DREINTLVL_gm;
       }
     }
     else {
@@ -385,8 +384,9 @@ ISR(USARTC1_DRE_vect) {
         SPI_CNTL.DATA = op_buffer[op_buffer_index];
       }
       else {
-        SPI_CNTL.STATUS |= USART_DREIF_bm;
+        SPI_CNTL.CTRLA &= ~USART_DREINTLVL_gm;
       }
-    }  
-  }    
+    }
+  }
+  op_buffer_index++;
 }
