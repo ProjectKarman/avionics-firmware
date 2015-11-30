@@ -69,6 +69,8 @@ uint8_t fxls8471qr1_set_data_rate(enum fxls8471qr1_data_rate data_rate);
 uint8_t fxls8471qr1_set_interrupts(fxls8471qr1_bitfield_t bitfield);
 uint8_t fxls8471qr1_set_interrupt_route(fxls8471qr1_bitfield_t bitfield);
 uint8_t fxls8471qr1_get_data(fxls8471qr1_raw_accel_t *data);
+uint8_t fxls8471qr1_get_data_async(fxls8471qr1_data_callback_t callback);
+uint8_t fxls8471qr1_get_data_async_from_isr(fxls8471qr1_data_callback_t callback);
 uint8_t fxls8471qr1_activate(void);
 
 #endif /* FXLS8471QR1_H_ */

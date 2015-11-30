@@ -254,6 +254,28 @@ uint8_t fxls8471qr1_get_data(fxls8471qr1_raw_accel_t *data) {
   }
 }
 
+uint8_t fxls8471qr1_get_data_async(fxls8471qr1_data_callback_t callback) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    read_register_async(REG_STATUS, DATA_READ_LENGTH, callback);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+uint8_t fxls8471qr1_get_data_async_from_isr(fxls8471qr1_data_callback_t callback) {
+  if(xSemaphoreTakeFromISR(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    read_register_async(REG_STATUS, DATA_READ_LENGTH, callback);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
 uint8_t fxls8471qr1_activate(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     local_ctrl_reg1_config.active = 0x1;
