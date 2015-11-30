@@ -129,9 +129,8 @@ void fxls8471qr1_init()
   SPI_CNTL.CTRLA |= USART_TXCINTLVL_MED_gc;
   SPI_CNTL.CTRLB |= USART_TXEN_bm | USART_RXEN_bm;
   SPI_CNTL.CTRLC |= USART_CMODE_MSPI_gc;
-  SPI_CNTL.CTRLC &= ~(USART_CHSIZE2_bp | USART_CHSIZE2_bm);
+  SPI_CNTL.CTRLC &= ~(USART_CHSIZE2_bm | USART_CHSIZE2_bm); // Set SPI Phase / Data order
   SPI_CNTL.BAUDCTRLA = USART_BSEL;
-  
   
   // Config OS Level Structures
   command_running_semaphore = xSemaphoreCreateBinary();
@@ -255,6 +254,19 @@ uint8_t fxls8471qr1_get_data(fxls8471qr1_raw_accel_t *data) {
   }
 }
 
+uint8_t fxls8471qr1_activate(void) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_ctrl_reg1_config.active = 0x1;
+    write_register_single(REG_CTRL_REG1, local_ctrl_reg1_config.raw);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
 /* Private Functions */
 static inline void spi_startframe(void){
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_LOW);
@@ -361,20 +373,25 @@ ISR(USARTC1_DRE_vect) {
   else {
     if(op_type & READ_CMD_TYPE_MASK) {
       // Read Command
-      if(op_buffer_index == 2) {
+      if(op_buffer_index < 3) {
+        SPI_CNTL.DATA = DUMMY_DATA;
+      }
+      else if(op_buffer_index == 3) {
         // Flush FIFO
-        SPI_CNTL.DATA;
-        SPI_CNTL.DATA;
+        //SPI_CNTL.DATA;
+        //SPI_CNTL.DATA;
+        SPI_CNTL.CTRLB &= ~USART_RXEN_bm;
+        SPI_CNTL.CTRLB |= USART_RXEN_bm;
         SPI_CNTL.DATA = DUMMY_DATA;
       }
       else if(op_buffer_index < op_len) {
         // Continue Read
-        op_buffer[op_buffer_index - 2] = SPI_CNTL.DATA;
+        op_buffer[op_buffer_index - 4] = SPI_CNTL.DATA;
         SPI_CNTL.DATA = DUMMY_DATA;
       }
       else {
         // End Read
-        op_buffer[op_buffer_index - 2] = SPI_CNTL.DATA;
+        op_buffer[op_buffer_index - 4] = SPI_CNTL.DATA;
         SPI_CNTL.CTRLA &= ~USART_DREINTLVL_gm;
       }
     }
