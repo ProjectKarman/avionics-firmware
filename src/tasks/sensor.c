@@ -20,9 +20,11 @@
 /* Private Prototypes */
 static void sensor_task_loop();
 static void sensor_read();
-static inline void sensor_initialize();
+static void sensor_initialize();
+static void startup_timer();
 
 /* Private Variables */
+#define SENSOR_COLLECTION_TIMER	TCC2
 TaskHandle_t sensor_task_handle;
 
 void sensor_start_task(void) {
@@ -35,28 +37,18 @@ static void sensor_task_loop() {
   TaskHandle_t sensor_task_handle;
   reference_node_t current_sensor_readings;
   transceiver_queue_t tranceiver_buffer;
-  
-  // set up timer
-  pmic_init();
-  sysclk_init();
-  tc_enable(&TCC0);
-  tc_set_overflow_interrupt_callback(&TCC0, sensor_read);
-  tc_set_wgm(&TCC0, TC_WG_NORMAL);
-  tc_write_period(&TCC0, 1000);
-  tc_set_overflow_interrupt_level(&TCC0, TC_INT_LVL_LO);
-  cpu_irq_enable();
-  tc_write_clock_source(&TCC0, TC_CLKSEL_DIV1_gc);
-  
+
   data_buffer_init(&tranceiver_buffer, &current_sensor_readings);
   
   sensor_initialize();
+  startup_timer();
   
   for(;;) {
     
   }
 }  
 
-static inline void sensor_initialize() {
+static void sensor_initialize() {
   ms5607_02ba_reset();
   ms5607_02ba_load_prom();
   
@@ -68,4 +60,15 @@ static inline void sensor_initialize() {
 
 static void sensor_read() {
 	
+}
+
+static void startup_timer()  {
+  // set up timer
+  tc_enable(&SENSOR_COLLECTION_TIMER);
+  tc_set_overflow_interrupt_callback(&SENSOR_COLLECTION_TIMER, sensor_read);
+  tc_set_wgm(&SENSOR_COLLECTION_TIMER, TC_WG_NORMAL);
+  tc_write_period(&SENSOR_COLLECTION_TIMER, 1000);
+  tc_set_overflow_interrupt_level(&SENSOR_COLLECTION_TIMER, TC_INT_LVL_LO);
+  cpu_irq_enable();
+  tc_write_clock_source(&SENSOR_COLLECTION_TIMER, TC_CLKSEL_DIV1_gc);
 }
