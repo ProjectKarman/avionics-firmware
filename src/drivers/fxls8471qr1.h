@@ -72,5 +72,7 @@ uint8_t fxls8471qr1_get_data(fxls8471qr1_raw_accel_t *data);
 uint8_t fxls8471qr1_get_data_async(fxls8471qr1_data_callback_t callback);
 uint8_t fxls8471qr1_get_data_async_from_isr(fxls8471qr1_data_callback_t callback);
 uint8_t fxls8471qr1_activate(void);
+void fxls8471qr1_set_int1_handler(fxls8471qr1_callback_t callback);
+void fxls8471qr1_set_int2_handler(fxls8471qr1_callback_t callback);
 
 #endif /* FXLS8471QR1_H_ */

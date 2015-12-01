@@ -43,6 +43,8 @@
 #define SPI_MISO_PIN IOPORT_CREATE_PIN(PORTC, 6)
 #define SPI_MOSI_PIN IOPORT_CREATE_PIN(PORTC, 7)
 #define SPI_SCLK_PIN IOPORT_CREATE_PIN(PORTC, 5)
+#define INT1_PIN IOPORT_CREATE_PIN(PORTD, 0)
+#define INT2_PIN IOPORT_CREATE_PIN(PORTD, 1)
 
 // USART Peripheral
 #define SPI_CNTL USARTC1
@@ -105,6 +107,8 @@ static union {
 } local_ctrl_reg1_config;
 static uint8_t local_ctrl_reg4_config;
 static uint8_t local_ctrl_reg5_config;
+static fxls8471qr1_callback_t int1_pin_callback;
+static fxls8471qr1_callback_t int2_pin_callback;
 static fxls8471qr1_callback_t write_function_callback;
 static fxls8471qr1_data_callback_t read_function_callback;
 static uint8_t op_buffer[OP_BUFFER_LEN];
@@ -123,6 +127,14 @@ void fxls8471qr1_init()
   ioport_set_pin_dir(SPI_MOSI_PIN, IOPORT_DIR_OUTPUT);
   ioport_set_pin_dir(SPI_SCLK_PIN, IOPORT_DIR_OUTPUT);
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_HIGH);
+  
+  // Configure Interrupt Pins
+  ioport_set_pin_sense_mode(INT1_PIN, IOPORT_SENSE_FALLING);
+  arch_ioport_pin_to_base(INT1_PIN)->INT0MASK |= arch_ioport_pin_to_mask(INT1_PIN);
+  arch_ioport_pin_to_base(INT1_PIN)->INTCTRL |= PORT_INT0LVL_MED_gc;
+  ioport_set_pin_sense_mode(INT2_PIN, IOPORT_SENSE_FALLING);
+  arch_ioport_pin_to_base(INT2_PIN)->INT0MASK |= arch_ioport_pin_to_mask(INT2_PIN);
+  arch_ioport_pin_to_base(INT2_PIN)->INTCTRL |= PORT_INT0LVL_MED_gc;
   
   // Configure USART
   sysclk_enable_module(SYSCLK_PORT_C, PR_USART1_bm);
@@ -289,6 +301,14 @@ uint8_t fxls8471qr1_activate(void) {
   }
 }
 
+void fxls8471qr1_set_int1_handler(fxls8471qr1_callback_t callback) {
+  int1_pin_callback = callback;
+}
+
+void fxls8471qr1_set_int2_handler(fxls8471qr1_callback_t callback) {
+  int2_pin_callback = callback;
+}
+
 /* Private Functions */
 static inline void spi_startframe(void){
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_LOW);
@@ -428,4 +448,17 @@ ISR(USARTC1_DRE_vect) {
     }
   }
   op_buffer_index++;
+}
+
+ISR(PORTD_INT0_vect) {
+  if(PORTD.IN & ioport_pin_to_mask(INT1_PIN)) {
+    if(int1_pin_callback) {
+      int1_pin_callback();
+    }
+  }
+  else if(PORTD.IN & ioport_pin_to_mask(INT2_PIN)) {
+    if(int2_pin_callback) {
+      int2_pin_callback();
+    }
+  }
 }
