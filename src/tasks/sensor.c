@@ -32,7 +32,7 @@ static void sensor_task_loop(void *p) {
   init_ms5607_02ba();
   init_fxls8471qr1();
   
-  vTaskDelay(10);
+  vTaskDelay(1);
   fxls8471qr1_raw_accel_t raw_data;
   fxls8471qr1_get_data(&raw_data);
   
@@ -51,6 +51,10 @@ static void init_ms5607_02ba(void) {
 }
 
 static void init_fxls8471qr1(void) {
+  if(fxls8471qr1_check_comms()) {
+    // An error occured
+    return;
+  }
   //fxls8471qr1_set_fifo_mode(FXLS8471QR1_FIFO_CIRCULAR_BUFFER);
   //fxls8471qr1_set_data_rate(FXLS8471QR1_DR_200_HZ);
   fxls8471qr1_activate();

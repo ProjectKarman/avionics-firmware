@@ -26,17 +26,21 @@
 #define REG_F_SETUP 0x09
 #define REG_XYZ_DATA_CFG 0x0E
 #define REG_F_STATUS 0x10
+#define WHO_AM_I 0x0D
 #define REG_CTRL_REG1 0x2A
 #define REG_CTRL_REG2 0x2B
 #define REG_CTRL_REG3 0x2C
 #define REG_CTRL_REG4 0x2D
 #define REG_CTRL_REG5 0x2E
 
+#define WHO_AM_I_RESPONSE 0x6A
+
 // Device Commands
 #define SPICMD_W_REGISTER_MSB(reg) (0x80 | reg)
 #define SPICMD_W_REGISTER_LSB(reg) (reg)
 #define SPICMD_R_REGISTER_MSB(reg) (reg & ~0x80)
 #define SPICMD_R_REGISTER_LSB(reg) (reg)
+#define SPICMD_LEN 2
 
 // IO Definitions
 #define SPI_CS_PIN IOPORT_CREATE_PIN(PORTC, 4)
@@ -50,7 +54,7 @@
 #define SPI_CNTL USARTC1
 #define F_PER 32000000
 #define DESIRED_BITRATE 10000000
-#define USART_BSEL 15 // (F_PER / (2 * DESIRED_BITRATE) - 1)
+#define USART_BSEL 16 // (F_PER / (2 * DESIRED_BITRATE) - 1)
 
 // Misc
 #define OP_BUFFER_LEN 8
@@ -138,10 +142,10 @@ void fxls8471qr1_init()
   
   // Configure USART
   sysclk_enable_module(SYSCLK_PORT_C, PR_USART1_bm);
-  SPI_CNTL.CTRLA |= USART_TXCINTLVL_MED_gc;
+  SPI_CNTL.CTRLA |= USART_RXCINTLVL_MED_gc;
   SPI_CNTL.CTRLB |= USART_TXEN_bm | USART_RXEN_bm;
   SPI_CNTL.CTRLC |= USART_CMODE_MSPI_gc;
-  SPI_CNTL.CTRLC &= ~(USART_CHSIZE2_bm | USART_CHSIZE2_bm); // Set SPI Phase / Data order
+  SPI_CNTL.CTRLC &= ~(USART_CHSIZE2_bm | USART_CHSIZE1_bm); // Set SPI Phase / Data order
   SPI_CNTL.BAUDCTRLA = USART_BSEL;
   
   // Config OS Level Structures
@@ -150,6 +154,22 @@ void fxls8471qr1_init()
     xSemaphoreGive(command_running_semaphore);
   }
   command_complete_semaphore = xSemaphoreCreateBinary();
+}
+
+uint8_t fxls8471qr1_check_comms(void) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    read_register_single(WHO_AM_I);
+    
+    if(op_buffer[0] == WHO_AM_I_RESPONSE) {
+      return 0;
+    }
+    else {
+      return 2;
+    }
+  }
+  else {
+    return 1;
+  }
 }
 
 uint8_t fxls8471qr1_set_fifo_mode(enum fxls8471qr1_fifo_mode fifo_mode)
@@ -329,15 +349,17 @@ static inline void write_register_single(uint8_t address, uint8_t values) {
 }
 
 static void write_register(uint8_t address, uint8_t *buffer, uint8_t len) {
-  op_buffer[0] = SPICMD_W_REGISTER_MSB(address);
-  op_buffer[1] = SPICMD_W_REGISTER_LSB(address);
-  memcpy(op_buffer + 2, buffer, len);
-  op_len = len + 2;
+  //op_buffer[0] = SPICMD_W_REGISTER_MSB(address);
+  //op_buffer[1] = SPICMD_W_REGISTER_LSB(address);
+  memcpy(op_buffer, buffer, len);
+  op_len = len + SPICMD_LEN;
   op_buffer_index = 0;
   op_type = CMD_TYPE_WRITE;
   
   spi_startframe();
-  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc; 
+  SPI_CNTL.DATA = SPICMD_W_REGISTER_MSB(address);
+  while(!(SPI_CNTL.STATUS & USART_DREIF_bm)); 
+  SPI_CNTL.DATA = SPICMD_W_REGISTER_LSB(address);
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
 }
 
@@ -351,7 +373,9 @@ static void write_register_async(uint8_t address, uint8_t *buffer, uint8_t len, 
   op_type = CMD_TYPE_WRITE_ASYNC;
   
   spi_startframe();
-  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc;
+  SPI_CNTL.DATA = SPICMD_W_REGISTER_MSB(address);
+  while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+  SPI_CNTL.DATA = SPICMD_W_REGISTER_LSB(address);
 }
 
 static inline void read_register_single(uint8_t address) {
@@ -361,12 +385,15 @@ static inline void read_register_single(uint8_t address) {
 static void read_register(uint8_t address, uint8_t len) {
   op_buffer[0] = SPICMD_R_REGISTER_MSB(address);
   op_buffer[1] = SPICMD_R_REGISTER_LSB(address);
+  memset(op_buffer, DUMMY_DATA, len);
   op_len = len + 2;
   op_buffer_index = 0;
   op_type = CMD_TYPE_READ;
   
   spi_startframe();
-  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc;
+  SPI_CNTL.DATA = SPICMD_R_REGISTER_MSB(address);
+  while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+  SPI_CNTL.DATA = SPICMD_R_REGISTER_LSB(address);
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
 }
 
@@ -379,74 +406,50 @@ static void read_register_async(uint8_t address, uint8_t len, fxls8471qr1_data_c
   op_type = CMD_TYPE_READ_ASYNC;
   
   spi_startframe();
-  SPI_CNTL.CTRLA |= USART_DREINTLVL_MED_gc;
+  SPI_CNTL.DATA = SPICMD_R_REGISTER_MSB(address);
+  while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+  SPI_CNTL.DATA = SPICMD_R_REGISTER_LSB(address);
 }
 
-ISR(USARTC1_TXC_vect) {
-  if(op_type & ASYNC_CMD_TYPE_MASK) {
-    // Async Command
-    spi_endframe();
-    xSemaphoreGiveFromISR(command_running_semaphore, NULL);
-    if((op_type & READ_CMD_TYPE_MASK) && read_function_callback) {
-      /*
-       * Here we are assuming that the read async functionality will only
-       * be used to read data off the accel
-       */
-      fxls8471qr1_raw_accel_t data;
-      raw_accel_pack_from_buffer(&data, op_buffer);
-      read_function_callback(data); // Read Async Call
-    }
-    else if(write_function_callback) {
-      write_function_callback(); // Write Async Call
-    }
-  }
-  else {
-    // Sync Command
-    spi_endframe();
-    xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
-  }
-}
-
-ISR(USARTC1_DRE_vect) {
-  if(op_buffer_index <= 1) {
-    // Send Command LSB
+ISR(USARTC1_RXC_vect) {
+  // Tx part
+  if(op_buffer_index + 2 < op_len) {
     SPI_CNTL.DATA = op_buffer[op_buffer_index];
   }
+  
+  // Rx part
+  if(op_buffer_index <= 1) {
+    op_buffer[0] = SPI_CNTL.DATA;
+  }
+  else if(op_buffer_index < op_len) {
+    op_buffer[op_buffer_index - 2] = SPI_CNTL.DATA;
+  }
   else {
-    if(op_type & READ_CMD_TYPE_MASK) {
-      // Read Command
-      if(op_buffer_index < 3) {
-        SPI_CNTL.DATA = DUMMY_DATA;
+    // Done with operations
+    op_buffer[op_buffer_index - 2] = SPI_CNTL.DATA;
+    if(op_type & ASYNC_CMD_TYPE_MASK) {
+      // Async Command
+      spi_endframe();
+      xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+      if((op_type & READ_CMD_TYPE_MASK) && read_function_callback) {
+        /*
+          * Here we are assuming that the read async functionality will only
+          * be used to read data off the accel
+          */
+        fxls8471qr1_raw_accel_t data;
+        raw_accel_pack_from_buffer(&data, op_buffer);
+        read_function_callback(data); // Read Async Call
       }
-      else if(op_buffer_index == 3) {
-        // Flush FIFO
-        //SPI_CNTL.DATA;
-        //SPI_CNTL.DATA;
-        SPI_CNTL.CTRLB &= ~USART_RXEN_bm;
-        SPI_CNTL.CTRLB |= USART_RXEN_bm;
-        SPI_CNTL.DATA = DUMMY_DATA;
-      }
-      else if(op_buffer_index < op_len) {
-        // Continue Read
-        op_buffer[op_buffer_index - 4] = SPI_CNTL.DATA;
-        SPI_CNTL.DATA = DUMMY_DATA;
-      }
-      else {
-        // End Read
-        op_buffer[op_buffer_index - 4] = SPI_CNTL.DATA;
-        SPI_CNTL.CTRLA &= ~USART_DREINTLVL_gm;
+      else if(write_function_callback) {
+        write_function_callback(); // Write Async Call
       }
     }
     else {
-      // Write Command
-      if(op_buffer_index < op_len) {
-        SPI_CNTL.DATA = op_buffer[op_buffer_index];
-      }
-      else {
-        SPI_CNTL.CTRLA &= ~USART_DREINTLVL_gm;
-      }
+      // Sync Command
+      spi_endframe();
+      xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
     }
-  }
+  }  
   op_buffer_index++;
 }
 
