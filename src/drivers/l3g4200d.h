@@ -63,6 +63,23 @@ enum l3g4200d_ctrl_reg2_hp_cutoff {
   L3G4200D_HP_CUTOFF_ODR_100HZ_0_01HZ = 0x9,
 };
 
+enum l3g4200d_ctrl_reg4_fs_select {
+  L3G4200D_FS_SELECT_250_DPS = 0x0,
+  L3G4200D_FS_SELECT_500_DPS = 0x1,
+  L3G4200D_FS_SELECT_2000_DPS = 0x2
+};
+
+enum l3g4200d_ctrl_reg4_self_test_enable {
+  L3G4200D_SELF_TEST_NORMAL_MODE = 0x0,
+  L3G4200D_SELF_TEST_0_MODE = 0x1,
+  L3G4200D_SELF_TEST_1_MODE = 0x3
+};
+
+enum l3g4200d_ctrl_reg4_spi_mode {
+  L3G4200D_SPI_MODE_4_WIRE = 0x0,
+  L3G4200D_SPI_MODE_3_WIRE = 0x1
+};  
+
 enum l3g4200d_ctrl_reg5_out_sel {
   L3G4200D_OUT_SEL_NON_HP_FILTERED = 0x0,
   L3G4200D_OUT_SEL_HP_FILTERED = 0x1,
@@ -100,20 +117,30 @@ typedef void (*l3g4200d_data_callback_t)(l3g4200d_raw_xyz_t);
 // Public Functions
 void l3g4200d_init(void);
 
+uint8_t l3g4200d_check_comms(void);
 uint8_t l3g4200d_setup_fifo_mode(enum l3g4200d_fifo_mode fifo_mode);
 uint8_t l3g4200d_setup_fifo_watermark(uint8_t watermark);
 uint8_t l3g4200d_setup_ctrl_reg1_dr_bw(enum l3g4200d_ctrl_reg1_odr_bw odr_bw_select);
 uint8_t l3g4200d_setup_ctrl_reg2_hp(enum l3g4200d_ctrl_reg2_hp_mode hp_mode);
 uint8_t l3g4200d_setup_ctrl_reg2_hp_cutoff(enum l3g4200d_ctrl_reg2_hp_cutoff hp_cutoff);
 uint8_t l3g4200d_setup_ctrl_reg3(l3g4200d_bitfield_t bitfield);
+uint8_t l3g4200d_setup_ctrl_reg4_fs_select(enum l3g4200d_ctrl_reg4_fs_select fs_select);
+uint8_t l3g4200d_setup_ctrl_reg4_self_test_enable(enum l3g4200d_ctrl_reg4_self_test_enable self_test);
+uint8_t l3g4200d_setup_ctrl_reg4_spi_mode_select(enum l3g4200d_ctrl_reg4_spi_mode spi_mode);
 uint8_t l3g4200d_setup_ctrl_reg5_fifo_enable(bool enable);
 uint8_t l3g4200d_setup_ctrl_reg5_hp_filter_enable(bool enable);
 uint8_t l3g4200d_setup_ctrl_reg5_int1_sel(enum l3g4200d_ctrl_reg5_int1_sel int1_sel);
 uint8_t l3g4200d_setup_ctrl_reg5_out_sel(enum l3g4200d_ctrl_reg5_out_sel out_sel);
 uint8_t l3g4200d_setup_int1_cfg(l3g4200d_bitfield_t bitfield);
+uint8_t l3g4200d_setup_int1_ths_x(uint16_t threshold);
+uint8_t l3g4200d_setup_int1_ths_y(uint16_t threshold);
+uint8_t l3g4200d_setup_int1_ths_z(uint16_t threshold);
+uint8_t l3g4200d_setup_int1_wait_enable(bool enable);
+uint8_t l3g4200d_setup_int1_duration(l3g4200d_bitfield_t bitfield);
 uint8_t l3g4200d_get_data(l3g4200d_raw_xyz_t *data);
 uint8_t l3g4200d_get_data_async(l3g4200d_data_callback_t callback);
 uint8_t l3g4200d_get_data_async_from_isr(l3g4200d_data_callback_t callback);
+uint8_t l3g4200d_activate(void);
 void l3g4200d_set_int1_handler(l3g4200d_callback_t callback);
 void l3g4200d_set_int2_handler(l3g4200d_callback_t callback);
 
