@@ -52,9 +52,6 @@
  * running the ASF driver selector tool. Any changes will be discarded.
  */
 
-// From module: AC - Analog Comparator
-#include <ac.h>
-
 // From module: CPU specific features
 #include <ccp.h>
 #include <xmega_reset_cause.h>
@@ -89,13 +86,6 @@
 // From module: Part identification macros
 #include <parts.h>
 
-// From module: SPI - Serial Peripheral Interface
-#include <spi.h>
-
-// From module: SPI - XMEGA implementation
-#include <usart_spi.h>
-#include <xmega_usart_spi/usart_spi.h>
-
 // From module: Sleep Controller driver
 #include <sleep.h>
 
@@ -108,12 +98,6 @@
 
 // From module: TC - Timer Counter
 #include <tc.h>
-
-// From module: USART - Serial interface - XMEGA implementation
-#include <serial.h>
-
-// From module: USART - Universal Synchronous/Asynchronous Receiver/Transmitter
-#include <usart.h>
 
 // From module: WDT - Watchdog Timer
 #include <wdt.h>

@@ -63,12 +63,14 @@
 #define CE_PIN IOPORT_CREATE_PIN(PORTB, 7)
 #define IRQ_PIN IOPORT_CREATE_PIN(PORTC, 0)
 
-// Peripheral Definitions
-#define SPI_CNTL_USART USARTC0
-#define SPI_CNTL (&SPI_CNTL_USART)
-#define DMA_TX_CHANNEL_NUM 0
-#define DMA_CHANNEL DMA.CH0
+// USART Peripheral
+#define SPI_CNTL USARTC0
+#define F_PER 32000000
+#define DESIRED_BITRATE 10000000
+#define USART_BSEL 1 // (F_PER / (2 * DESIRED_BITRATE) - 1)
 
+// Misc
+#define OP_BUFFER_LEN 32
 #define SEMAPHORE_BLOCK_TIME 0
 
 enum command_type {
@@ -76,12 +78,6 @@ enum command_type {
   CMD_TYPE_ASYNC,
   CMD_TYPE_DMA,
   CMD_TYPE_DMA_TWO_XFER,
-};
-
-enum dma_config_state {
-  DMA_CFG_NONE,
-  DMA_CFG_TX,
-  DMA_CFG_RX,
 };
 
 // Function Prototypes
@@ -95,20 +91,18 @@ static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len)
 static void send_command_async(uint8_t command, uint8_t const *data, uint8_t data_len, nrf24l01p_callback_t callback);
 static void spi_startframe(void);
 static void spi_endframe(void);
-static void dma_channel_handler(enum dma_channel_status status);
-static void config_dma_tx(void);
-static void config_dma_rx(void);
-
 
 // Driver Variables
-static const uint8_t RESET_INTERRUPTS_CMD[2] = {0x27, 0x70};
-static uint8_t local_reg_config = 0;
-static uint8_t local_reg_rf_setup = 0;
-static uint8_t local_reg_en_aa = 0;
-static uint8_t local_reg_setup_retr = 0;
+static uint8_t local_reg_config;
+static uint8_t local_reg_rf_setup;
+static uint8_t local_reg_en_aa;
+static uint8_t local_reg_setup_retr;
 static volatile uint8_t local_reg_status;
 static nrf24l01p_callback_t interrupt_callback;
 static nrf24l01p_callback_t current_function_callback;
+static uint8_t op_buffer[OP_BUFFER_LEN];
+static uint8_t op_len;
+static uint8_t op_buffer_index;
 static uint8_t *bytes_to_send;
 static uint8_t *bytes_received;
 static uint8_t bytes_len;
@@ -131,11 +125,12 @@ void nrf24l01p_init(void) {
   arch_ioport_pin_to_base(IRQ_PIN)->INTCTRL |= PORT_INT0LVL_HI_gc;
 
   // Init SPI
-  struct usart_spi_device spi_conf = {
-    .id = SPI_CS_PIN
-  };
-  usart_spi_init(SPI_CNTL);
-  usart_spi_setup_device(SPI_CNTL, &spi_conf, SPI_MODE_0, 10000000, 0);
+  sysclk_enable_module(SYSCLK_PORT_C, PR_USART0_bm);
+  SPI_CNTL.CTRLA |= USART_RXCINTLVL_MED_gc;
+  SPI_CNTL.CTRLB |= USART_TXEN_bm | USART_RXEN_bm;
+  SPI_CNTL.CTRLC |= USART_CMODE_MSPI_gc;
+  SPI_CNTL.CTRLC &= ~(USART_CHSIZE2_bm | USART_CHSIZE1_bm); // Set SPI Phase / Data order
+  SPI_CNTL.BAUDCTRLA = USART_BSEL;
   spi_endframe();
 
   // OS Level Structures
@@ -313,7 +308,7 @@ uint8_t nrf24l01p_reset_interrupts(void)
 uint8_t nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    write_register_async(REG_STATUS, RESET_INTERRUPTS_CMD + 1, 1, callback);
+    //write_register_async(REG_STATUS, RESET_INTERRUPTS_CMD + 1, 1, callback);
 
     return 0;
   }
@@ -325,15 +320,6 @@ uint8_t nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback)
 uint8_t nrf24l01p_reset_interrupts_async_from_isr(nrf24l01p_callback_t callback)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    DMA.CH0.SRCADDR0 = (((uint16_t)RESET_INTERRUPTS_CMD) >> 0*8 ) & 0xff;
-    DMA.CH0.SRCADDR1 = (((uint16_t)RESET_INTERRUPTS_CMD) >> 1*8 ) & 0xff;
-    DMA.CH0.SRCADDR2 = 0x0;
-    DMA.CH0.TRFCNT = sizeof(RESET_INTERRUPTS_CMD);
-    
-    current_command_type = CMD_TYPE_DMA;
-    current_function_callback = callback;
-    spi_startframe();
-    dma_channel_enable(DMA_TX_CHANNEL_NUM);
 
     return 0;
   }
@@ -435,17 +421,7 @@ uint8_t nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
 
 uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    data[0] = SPICMD_W_TX_PAYLOAD;
 
-    DMA.CH0.SRCADDR0 = (((uint16_t)data) >> 0*8 ) & 0xff;
-    DMA.CH0.SRCADDR1 = (((uint16_t)data) >> 1*8 ) & 0xff;
-    DMA.CH0.SRCADDR2 = 0x0;
-    DMA.CH0.TRFCNT = data_len + 1;
-    
-    current_command_type = CMD_TYPE_DMA;
-    current_function_callback = callback;
-    spi_startframe();
-    dma_channel_enable(DMA_TX_CHANNEL_NUM);
 
     return 0;
   }
@@ -456,17 +432,6 @@ uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_
 
 uint8_t nrf24l01p_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   if(xSemaphoreTakeFromISR(command_running_semaphore, NULL) == pdTRUE) {
-    data[0] = SPICMD_W_TX_PAYLOAD;
-
-    DMA.CH0.SRCADDR0 = (((uint16_t)data) >> 0*8 ) & 0xff;
-    DMA.CH0.SRCADDR1 = (((uint16_t)data) >> 1*8 ) & 0xff;
-    DMA.CH0.SRCADDR2 = 0x0;
-    DMA.CH0.TRFCNT = data_len + 1;
-    
-    current_command_type = CMD_TYPE_DMA;
-    current_function_callback = callback;
-    spi_startframe();
-    dma_channel_enable(DMA_TX_CHANNEL_NUM);
 
     return 0;
   }
@@ -481,36 +446,6 @@ uint8_t nrf24l01p_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, n
  */
 uint8_t nrf24l01p_reset_interrupts_and_send_payload_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
   if(xSemaphoreTakeFromISR(command_running_semaphore, NULL) == pdTRUE) {
-    // Setup payload
-    data[0] = SPICMD_W_TX_PAYLOAD;
-    bytes_to_send = data;
-    bytes_len = data_len + 1;
-
-    // Configure dma for reset
-    DMA.CH0.SRCADDR0 = (((uint16_t)RESET_INTERRUPTS_CMD) >> 0*8 ) & 0xff;
-    DMA.CH0.SRCADDR1 = (((uint16_t)RESET_INTERRUPTS_CMD) >> 1*8 ) & 0xff;
-    DMA.CH0.SRCADDR2 = 0x0;
-    DMA.CH0.TRFCNT = sizeof(RESET_INTERRUPTS_CMD);
-    
-    //current_command_type = CMD_TYPE_DMA_INTR_RST;
-    current_function_callback = callback;
-    spi_startframe();
-    DMA.CH0.CTRLB &= ~(DMA_CH_TRNINTLVL0_bm | DMA_CH_TRNINTLVL1_bm); // Disable DMA complete interrupt
-    dma_channel_enable(DMA_TX_CHANNEL_NUM);
-    while(DMA.STATUS & DMA_CH0BUSY_bm) {
-      nop();
-    }
-    spi_endframe();
-    DMA.CH0.CTRLB |= DMA_CH_TRNINTLVL0_bm | DMA_CH_TRNINTLVL1_bm; // Re enable DMA complete interrupt
-    DMA.CH0.SRCADDR0 = (((uint16_t)data) >> 0*8 ) & 0xff;
-    DMA.CH0.SRCADDR1 = (((uint16_t)data) >> 1*8 ) & 0xff;
-    DMA.CH0.SRCADDR2 = 0x0;
-    DMA.CH0.TRFCNT = data_len + 1;
-    
-    current_command_type = CMD_TYPE_DMA;
-    current_function_callback = callback;
-    spi_startframe();
-    dma_channel_enable(DMA_TX_CHANNEL_NUM);
 
     return 0;
   }
@@ -582,29 +517,6 @@ static void send_command_async(uint8_t command, uint8_t const *data, uint8_t dat
   usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
 }
 
-void config_dma_tx(void)
-{
-  struct dma_channel_config dmach_conf;
-  memset(&dmach_conf, 0, sizeof(dmach_conf));
-  dma_channel_set_burst_length(&dmach_conf, DMA_CH_BURSTLEN_1BYTE_gc);
-  dma_channel_set_transfer_count(&dmach_conf, 0);
-  dma_channel_set_src_reload_mode(&dmach_conf, DMA_CH_SRCRELOAD_TRANSACTION_gc);
-  dma_channel_set_dest_reload_mode(&dmach_conf, DMA_CH_DESTRELOAD_NONE_gc);
-  dma_channel_set_src_dir_mode(&dmach_conf, DMA_CH_SRCDIR_INC_gc);
-  dma_channel_set_dest_dir_mode(&dmach_conf, DMA_CH_DESTDIR_FIXED_gc);
-  dma_channel_set_source_address(&dmach_conf, (uint16_t)(uintptr_t)NULL);
-  dma_channel_set_destination_address(&dmach_conf, (uint16_t)(uintptr_t)&SPI_CNTL_USART.DATA);
-  dma_channel_set_trigger_source(&dmach_conf, DMA_CH_TRIGSRC_USARTC0_DRE_gc);
-  dma_channel_set_single_shot(&dmach_conf);
-  dma_set_callback(DMA_TX_CHANNEL_NUM, dma_channel_handler);
-  dma_channel_set_interrupt_level(&dmach_conf, DMA_INT_LVL_HI);
-  dma_channel_write_config(DMA_TX_CHANNEL_NUM, &dmach_conf);
-}
-
-static void config_dma_rx(void) {
-
-}
-
 static void spi_startframe(void) {
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_LOW);
 }
@@ -612,32 +524,6 @@ static void spi_startframe(void) {
 static void spi_endframe() {
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_HIGH);
 }
-
-static void dma_channel_handler(enum dma_channel_status status) {
-  if(current_command_type == CMD_TYPE_DMA_TWO_XFER) {
-    // This branch allows for a quick reset and send payload
-    spi_endframe();
-    DMA.CH0.SRCADDR0 = (((uint16_t)bytes_to_send) >> 0*8 ) & 0xff;
-    DMA.CH0.SRCADDR1 = (((uint16_t)bytes_to_send) >> 1*8 ) & 0xff;
-    DMA.CH0.SRCADDR2 = 0x0;
-    DMA.CH0.TRFCNT = bytes_len;
-    current_command_type = CMD_TYPE_DMA;
-    spi_startframe();
-    dma_channel_enable(DMA_TX_CHANNEL_NUM);
-    return;
-  };
-  spi_endframe();
-  // Clear USART FIFO
-  usart_get(SPI_CNTL);
-  usart_get(SPI_CNTL);
-  //SPI_CNTL_USART.CTRLB &= ~USART_RXEN_bm;
-  //SPI_CNTL_USART.CTRLB |= USART_RXEN_bm;
-
-  xSemaphoreGiveFromISR(command_running_semaphore, NULL);
-  if(current_function_callback) {
-    current_function_callback();
-  }
-};
 
 ISR(PORTC_INT0_vect) {
   if(interrupt_callback) {
