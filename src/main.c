@@ -17,7 +17,6 @@
 
 void blink1(void *p);
 void blink2(void *p);
-void gen_test_packets(void *p);
 
 void blink1(void *p) {	
 	while (1) {

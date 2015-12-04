@@ -14,21 +14,21 @@
 
 // Driver Types
 enum nrf24l01p_data_rate {
-  NRF24L01P_DR_250K,
-  NRF24L01P_DR_1M,
-  NRF24L01P_DR_2M,
+  NRF24L01P_DR_250K = 0x2,
+  NRF24L01P_DR_1M = 0x0,
+  NRF24L01P_DR_2M = 0x1,
 };
 
 enum nrf24l01p_radio_mode {
-  NRF24L01P_MODE_TX,
-  NRF24L01P_MODE_RX,
+  NRF24L01P_MODE_TX = 0x0,
+  NRF24L01P_MODE_RX = 0x1,
 };
 
 enum nrf24l01p_pa_power {
-  NRF24L01P_PWR_0DBM,
-  NRF24L01P_PWR_N6DBM,
-  NRF24L01P_PWR_N12DBM,
-  NRF24L01P_PWR_N18DBM,
+  NRF24L01P_PWR_0DBM = 0x0,
+  NRF24L01P_PWR_N6DBM = 0x2,
+  NRF24L01P_PWR_N12DBM = 0x1,
+  NRF24L01P_PWR_N18DBM = 0x3,
 };
 
 enum nrf24l01p_interrupt_mask {
@@ -45,7 +45,8 @@ typedef void (*nrf24l01p_callback_t)(void);
 void nrf24l01p_init(void);
 uint8_t nrf24l01p_read_regs(void);
 uint8_t nrf24l01p_set_autoack_mask(uint8_t mask);
-uint8_t nrf24l01p_set_retransmission(uint8_t delay, uint8_t count);
+uint8_t nrf24l01p_set_retransmission_delay(uint8_t delay);
+uint8_t nrf24l01p_set_retransmission_count(uint8_t count);
 uint8_t nrf24l01p_set_data_rate(enum nrf24l01p_data_rate new_dr);
 uint8_t nrf24l01p_set_radio_mode(enum nrf24l01p_radio_mode mode);
 uint8_t nrf24l01p_set_pa_power(enum nrf24l01p_pa_power new_pwr);

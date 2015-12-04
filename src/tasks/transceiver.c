@@ -145,7 +145,8 @@ static void init_nrf24l01p(void) {
   nrf24l01p_set_pa_power(NRF24L01P_PWR_N18DBM);
   nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_MAX_RT);
   nrf24l01p_set_autoack_mask(0x0);
-  nrf24l01p_set_retransmission(0, 0);
+  nrf24l01p_set_retransmission_count(0);
+  nrf24l01p_set_retransmission_delay(0);
   nrf24l01p_set_address((uint8_t *)address, 5);
   nrf24l01p_set_interrupt_pin_handler(nrf24l01p_interrupt_handler);
 }
@@ -247,7 +248,7 @@ static void nrf24l01p_interrupt_handler(void) {
 
     downlink_packet_t packet;
     if(!downlink_frame_get_next_packet(frame_to_send, &packet)) {
-      //nrf24l01p_reset_interrupts_and_send_payload_from_isr(packet.bytes, packet.len, dma_xfer_complete_handler);
+      nrf24l01p_reset_interrupts_and_send_payload_from_isr(packet.bytes, packet.len);
     }
     else if(fifo_fill_depth == 0) {
       // No more packets to transmit
