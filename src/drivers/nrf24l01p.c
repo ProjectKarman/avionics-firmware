@@ -35,26 +35,10 @@
 #define REG_TX_ADDR 0x10
 #define REG_FIFO_STATUS 0x17
 
-#define RF_DR_LOW_MASK 0x2
-
-// CONFIG reg bits
-#define CONFIG_PRIM_RX (1 << 0)
-#define CONFIG_PWR_UP (1 << 1)
-#define CONFIG_MASK_MAX_RT (1 << 4)
-#define CONFIG_MASK_TX_DS (1 << 5)
-#define CONFIG_MASK_RX_DR (1 << 6)
-
 // STATUS reg bits
 #define STATUS_MAX_RT (1 << 4)
 #define STATUS_TX_DS (1 << 5)
 #define STATUS_RX_DR (1 << 6)
-
-// RF SETUP reg bits
-#define RF_SETUP_RF_PWR0 (1 << 1)
-#define RF_SETUP_RF_PWR1 (1 << 2)
-#define RF_SETUP_RF_DR_HIGH (1 << 3)
-#define RF_SETUP_PLL_LOCK (1 << 4)
-#define RF_SETUP_RF_DR_LOW (1 << 5)
 
 // IO Definitions
 #define SPI_MOSI_PIN IOPORT_CREATE_PIN(PORTC, 3)
@@ -74,6 +58,7 @@
 #define OP_BUFFER_LEN 32
 #define SEMAPHORE_BLOCK_TIME 0
 #define DUMMY_DATA 0xff
+#define RF_DR_LOW_MASK 0x2
 
 enum command_type {
   CMD_TYPE_SYNC,
