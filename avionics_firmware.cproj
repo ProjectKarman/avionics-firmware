@@ -446,12 +446,6 @@
     <Compile Include="src\tasks\sensor.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="src\util\data_buffer.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\util\data_buffer.h">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="src\util\downlink_frame.h">
       <SubType>compile</SubType>
     </Compile>
