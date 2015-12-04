@@ -65,9 +65,9 @@ static void sensor_read() {
   uint8_t bool_reset_counter;
   
   if (sensor_read_cycle_counter = 0) {
-	  // read sensor at 400 Hz
+	// read sensor at 400 Hz
 	  
-	  // read sensor at 100 Hz
+	// read sensor at 100 Hz
 	  
   }
   else if((sensor_read_cycle_counter % 2) ==  1) {
@@ -96,11 +96,11 @@ static void startup_timer()  {
 }
 
 static void send_to_tranceiver() {
-	transceiver_message_t created_message;
+  transceiver_message_t created_message;
 	
-	// format message from struct based on message
-	created_message = transceiver_message_create(TRANSCEIVER_MSG_TYPE_GENERAL, &current_sensor_readings);
+  // format message from struct based on message
+  created_message = transceiver_message_create(TRANSCEIVER_MSG_TYPE_GENERAL, &current_sensor_readings);
 	 
-	// transceiver_send_message/transceiver_message_create
-	transceiver_send_message(created_message, 0);
+  // transceiver_send_message/transceiver_message_create
+  transceiver_send_message(created_message, 0);
 }
