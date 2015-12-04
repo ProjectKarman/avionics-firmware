@@ -6,7 +6,6 @@
  */ 
 
 #include "asf.h"
-#include "usart_spi.h"
 #include "nrf24l01p.h"
 #include <string.h>
 #include <inttypes.h>
@@ -72,12 +71,11 @@
 // Misc
 #define OP_BUFFER_LEN 32
 #define SEMAPHORE_BLOCK_TIME 0
+#define DUMMY_DATA 0xff
 
 enum command_type {
   CMD_TYPE_SYNC,
   CMD_TYPE_ASYNC,
-  CMD_TYPE_DMA,
-  CMD_TYPE_DMA_TWO_XFER,
 };
 
 // Function Prototypes
@@ -102,11 +100,7 @@ static nrf24l01p_callback_t interrupt_callback;
 static nrf24l01p_callback_t current_function_callback;
 static uint8_t op_buffer[OP_BUFFER_LEN];
 static uint8_t op_len;
-static uint8_t op_buffer_index;
-static uint8_t *bytes_to_send;
-static uint8_t *bytes_received;
-static uint8_t bytes_len;
-static volatile uint8_t current_byte_index;
+static volatile uint8_t op_buffer_index;
 static SemaphoreHandle_t command_complete_semaphore;
 static SemaphoreHandle_t command_running_semaphore;
 static enum command_type current_command_type;
@@ -139,8 +133,6 @@ void nrf24l01p_init(void) {
     xSemaphoreGive(command_running_semaphore);
   }
   command_complete_semaphore = xSemaphoreCreateBinary();
-
-  config_dma_tx();
 }
 
 uint8_t nrf24l01p_read_regs(void)
@@ -308,7 +300,8 @@ uint8_t nrf24l01p_reset_interrupts(void)
 uint8_t nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    //write_register_async(REG_STATUS, RESET_INTERRUPTS_CMD + 1, 1, callback);
+    const uint8_t value = STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS;
+    write_register_async(REG_STATUS, &value, 1, callback);
 
     return 0;
   }
@@ -320,6 +313,8 @@ uint8_t nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback)
 uint8_t nrf24l01p_reset_interrupts_async_from_isr(nrf24l01p_callback_t callback)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    const uint8_t value = STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS;
+    write_register_async(REG_STATUS, &value, 1, callback);
 
     return 0;
   }
@@ -444,9 +439,22 @@ uint8_t nrf24l01p_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, n
  * The following function sync sends the reset command and then sends the next payload async then returns
  * It was implemented this way to meet the strict timing deadline of sending new payloads between interrupts
  */
-uint8_t nrf24l01p_reset_interrupts_and_send_payload_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
+uint8_t nrf24l01p_reset_interrupts_and_send_payload_from_isr(uint8_t *data, uint8_t data_len) {
   if(xSemaphoreTakeFromISR(command_running_semaphore, NULL) == pdTRUE) {
-
+    // Reset Interrupts
+    SPI_CNTL.DATA = SPICMD_W_REGISTER(REG_STATUS);
+    while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+    SPI_CNTL.DATA = STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS;
+    while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+    
+    // Send Payload
+    SPI_CNTL.DATA = SPICMD_W_TX_PAYLOAD;
+    for(uint8_t i = 0; i < data_len; i++) {
+      while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+      SPI_CNTL.DATA = data[i];
+    }
+    
+    xSemaphoreGive(command_running_semaphore);
     return 0;
   }
   else {
@@ -471,9 +479,7 @@ static void inline read_register_single(uint8_t address, uint8_t *reg_value) {
 }
 
 static void read_register(uint8_t address, uint8_t *reg_value, uint8_t value_len) {
-  bytes_received = reg_value;
   send_command(SPICMD_R_REGISTER(address), NULL, value_len);
-  bytes_received = NULL;
 }
 
 static void inline write_register_single(uint8_t address, uint8_t new_value) {
@@ -485,36 +491,51 @@ static void inline write_register_single_async(uint8_t address, uint8_t new_valu
 }
 
 static void inline write_register(uint8_t address, uint8_t const *new_value, uint8_t value_len) {
-  bytes_received = NULL;
   send_command(SPICMD_W_REGISTER(address), new_value, value_len);
 }
 
 static void write_register_async(uint8_t address, uint8_t const *new_value, uint8_t value_len, nrf24l01p_callback_t callback) {
-  bytes_received = NULL;
   send_command_async(SPICMD_W_REGISTER(address), new_value, value_len, callback);
 }
 
-static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len) {
+static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len) { 
+  if(data) {
+    memcpy(op_buffer, data, data_len);
+  }
+  else {
+    memset(op_buffer, DUMMY_DATA, data_len);
+  }
+  
   current_command_type = CMD_TYPE_SYNC;
-  current_byte_index = 0;
-  bytes_len = data_len;
-  bytes_to_send = (uint8_t *)data;
-  usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
+  op_buffer_index = 1;
+  op_len = data_len;
+
   spi_startframe();
-  usart_put(SPI_CNTL, command); // Write out command
+  // Fill TX FIFO
+  SPI_CNTL.DATA = command;
+  while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+  SPI_CNTL.DATA = data[0];
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
   // SPI Frame is ended in the USART ISR
 }
 
 static void send_command_async(uint8_t command, uint8_t const *data, uint8_t data_len, nrf24l01p_callback_t callback) {
+  if(data) {
+    memcpy(op_buffer, data, data_len);
+  }
+  else {
+    memset(op_buffer, DUMMY_DATA, data_len);
+  }
+  
   current_command_type = CMD_TYPE_ASYNC;
-  current_byte_index = 0;
-  bytes_len = data_len;
-  bytes_to_send = (uint8_t *)data;
-  current_function_callback = callback;
+  op_buffer_index = 1;
+  op_len = data_len;
+
   spi_startframe();
-  usart_put(SPI_CNTL, command); // Write out the address
-  usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_MED); // Enable Interrupt source
+  // Fill TX FIFO
+  SPI_CNTL.DATA = command;
+  while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+  SPI_CNTL.DATA = data[0];
 }
 
 static void spi_startframe(void) {
@@ -531,48 +552,31 @@ ISR(PORTC_INT0_vect) {
   }
 }
 
-ISR(USARTC0_TXC_vect) {
-  if(current_byte_index == 0) {
+ISR(USARTC0_RXC_vect) {
+  if(op_buffer_index == 1) {
     // First byte we receive is the status byte
-    local_reg_status = usart_get(SPI_CNTL);
+    local_reg_status = SPI_CNTL.DATA;
   }
-  else if(bytes_received != NULL) {
+  else {
     // If bytes_received isn't NULL then we should save data
-    bytes_received[current_byte_index - 1] = usart_get(SPI_CNTL);
+    op_buffer[op_buffer_index - 2] = SPI_CNTL.DATA;
   }
 
-  if(current_byte_index < bytes_len) {
-    if(bytes_to_send != NULL) {
-      // If there are bytes to send, send the next one
-      usart_put(SPI_CNTL, bytes_to_send[current_byte_index++]);
-    }
-    else {
-      // Otherwise send dummy data
-      usart_put(SPI_CNTL, 0xFF);
-      current_byte_index++;
-    }
+  if(op_buffer_index < op_len - 1) {
+    SPI_CNTL.DATA = op_buffer[op_buffer_index];
+    op_buffer_index++;
   }
   else {
     // End of transfer
-    switch(current_command_type) {
-      case CMD_TYPE_SYNC:
-        spi_endframe();
-        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
-        xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
-        break;
-      case CMD_TYPE_ASYNC:
-        spi_endframe();
-        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
-        xSemaphoreGiveFromISR(command_running_semaphore, NULL);
-        if(current_function_callback) {
-          current_function_callback();
-        }
-        break;
-      case CMD_TYPE_DMA_TWO_XFER:
-      case CMD_TYPE_DMA:
-        usart_set_tx_interrupt_level(SPI_CNTL, USART_INT_LVL_OFF);
-        dma_channel_enable(DMA_TX_CHANNEL_NUM);
-        break;
+    spi_endframe();
+    if(current_command_type == CMD_TYPE_SYNC) {
+      xSemaphoreGiveFromISR(command_complete_semaphore, NULL);
+    }
+    else {
+      xSemaphoreGiveFromISR(command_running_semaphore, NULL);
+      if(current_function_callback) {
+        current_function_callback();
+      }
     }
   }
 }
