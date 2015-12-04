@@ -61,6 +61,7 @@ typedef void (*fxls8471qr1_data_callback_t)(fxls8471qr1_raw_accel_t);
 
 /* Public Functions */
 void fxls8471qr1_init(void);
+int16_t fxls8471qr1_convert_raw_accel_to_scalar(uint16_t raw, enum fxls8471qr1_fs_range range);
 uint8_t fxls8471qr1_check_comms(void);
 uint8_t fxls8471qr1_set_fifo_mode(enum fxls8471qr1_fifo_mode fifo_mode);
 uint8_t fxls8471qr1_set_fifo_watermark(uint8_t watermark);

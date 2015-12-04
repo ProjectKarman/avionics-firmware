@@ -63,6 +63,13 @@
 #define ASYNC_CMD_TYPE_MASK 0x2
 #define READ_CMD_TYPE_MASK 0x1
 #define DUMMY_DATA 0xff
+#define _14BIT_SIGN_MASK (1 << 13)
+
+// Full scale range divisors
+#define RAW_SCALE_FACTOR 10000
+#define FS_DIV_2G 40984 // ~ 10 / .244e-3
+#define FS_DIV_4G 20492 // ~ 10 / .488e-3
+#define FS_DIV_8G 10246 // ~ 10 / .976e-3
 
 /* Private Types */
 enum command_type {
@@ -156,9 +163,28 @@ void fxls8471qr1_init()
   command_complete_semaphore = xSemaphoreCreateBinary();
 }
 
+int16_t fxls8471qr1_convert_raw_accel_to_scalar(uint16_t raw, enum fxls8471qr1_fs_range range) {
+  int16_t raw_signed;
+  raw_signed = (int16_t)(raw << 2) >> 2;
+
+  uint16_t divisor;
+  if(range == FXLS8471QR1_FS_RANGE_2G) {
+    divisor = FS_DIV_2G;
+  }
+  else if(range == FXLS8471QR1_FS_RANGE_4G) {
+    divisor = FS_DIV_4G;
+  }
+  else {
+    divisor = FS_DIV_8G;
+  }
+  
+  return ((int32_t)raw_signed * RAW_SCALE_FACTOR) / divisor;
+}
+
 uint8_t fxls8471qr1_check_comms(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     read_register_single(WHO_AM_I);
+    xSemaphoreGive(command_running_semaphore);
     
     if(op_buffer[0] == WHO_AM_I_RESPONSE) {
       return 0;
@@ -339,9 +365,9 @@ static inline void spi_endframe(void){
 }
 
 static inline void raw_accel_pack_from_buffer(fxls8471qr1_raw_accel_t *raw_accel, uint8_t *buffer) {
-  raw_accel->x = (uint16_t)buffer[REG_OUT_X_MSB] << 6 | (uint16_t)buffer[REG_OUT_X_LSB];
-  raw_accel->y = (uint16_t)buffer[REG_OUT_Y_MSB] << 6 | (uint16_t)buffer[REG_OUT_Y_LSB];
-  raw_accel->z = (uint16_t)buffer[REG_OUT_Z_MSB] << 6 | (uint16_t)buffer[REG_OUT_Z_LSB];
+  raw_accel->x = (uint16_t)buffer[REG_OUT_X_MSB] << 6 | (uint16_t)buffer[REG_OUT_X_LSB] >> 2;
+  raw_accel->y = (uint16_t)buffer[REG_OUT_Y_MSB] << 6 | (uint16_t)buffer[REG_OUT_Y_LSB] >> 2;
+  raw_accel->z = (uint16_t)buffer[REG_OUT_Z_MSB] << 6 | (uint16_t)buffer[REG_OUT_Z_LSB] >> 2;
 }
 
 static inline void write_register_single(uint8_t address, uint8_t values) {
@@ -421,7 +447,7 @@ ISR(USARTC1_RXC_vect) {
   if(op_buffer_index <= 1) {
     op_buffer[0] = SPI_CNTL.DATA;
   }
-  else if(op_buffer_index < op_len) {
+  else if(op_buffer_index + 1 < op_len) {
     op_buffer[op_buffer_index - 2] = SPI_CNTL.DATA;
   }
   else {
