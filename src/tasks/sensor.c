@@ -46,8 +46,8 @@ static void sensor_task_loop() {
   sensor_initialize();
   startup_timer();
   
+  sensor_read();
   for(;;) {
-    sensor_read();
   }
 }  
 
