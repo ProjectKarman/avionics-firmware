@@ -10,7 +10,6 @@
 #define NRF24L01P_H_
 
 #include <inttypes.h>
-#include <stddef.h>
 #include "FreeRTOS.h"
 
 // Driver Types

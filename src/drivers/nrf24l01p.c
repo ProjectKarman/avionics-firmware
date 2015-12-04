@@ -441,18 +441,29 @@ uint8_t nrf24l01p_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, n
  */
 uint8_t nrf24l01p_reset_interrupts_and_send_payload_from_isr(uint8_t *data, uint8_t data_len) {
   if(xSemaphoreTakeFromISR(command_running_semaphore, NULL) == pdTRUE) {
+    SPI_CNTL.CTRLA &= USART_RXCINTLVL_gm; // Disable USART interrupt
+    
     // Reset Interrupts
+    spi_startframe();
     SPI_CNTL.DATA = SPICMD_W_REGISTER(REG_STATUS);
     while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
     SPI_CNTL.DATA = STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS;
-    while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+    while(!(SPI_CNTL.STATUS & USART_TXCIF_bm));
+    spi_endframe();
+    SPI_CNTL.STATUS |= USART_TXCIF_bm;
     
     // Send Payload
+    spi_startframe();
     SPI_CNTL.DATA = SPICMD_W_TX_PAYLOAD;
     for(uint8_t i = 0; i < data_len; i++) {
       while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
       SPI_CNTL.DATA = data[i];
     }
+    while(!(SPI_CNTL.STATUS & USART_TXCIF_bm));
+    spi_endframe();
+    SPI_CNTL.STATUS |= USART_TXCIF_bm;
+    
+    SPI_CNTL.CTRLA |= USART_RXCINTLVL_MED_gc;
     
     xSemaphoreGive(command_running_semaphore);
     return 0;
