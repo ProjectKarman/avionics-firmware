@@ -16,7 +16,6 @@
 // #include "fxls8471qr1.h"
 // #include "l3g4200d.h"
 #include "nrf24l01p.h"
-//#include "data_buffer.h"
 #include "message_types.h"
 #include "transceiver.h"
 
@@ -26,6 +25,7 @@
 #define SESNORCOLLECTION_800Hz TCE2
 #define EVENT_DATA_SIZE_MAX 25
 #define EVENT_QUEUE_DEPTH 8
+#define BASE_HERTZ_MODIFIER 40000
 
 enum sensor_queue_state_type {
 	SENSOR_ENTRY_100Hz,
@@ -104,14 +104,9 @@ static void startup_timer()  {
   tc_set_wgm(&SESNORCOLLECTION_400Hz, TC_WG_NORMAL);
   tc_set_wgm(&SESNORCOLLECTION_800Hz, TC_WG_NORMAL);
   
-  // tc_write_period(&SESNORCOLLECTION_100Hz, F_CPU / (4 * PROTOCOL_FRAME_RATE));
-  // tc_write_period(&SESNORCOLLECTION_400Hz, F_CPU / (4 * PROTOCOL_FRAME_RATE));
-  // tc_write_period(&SESNORCOLLECTION_800Hz, F_CPU / (4 * PROTOCOL_FRAME_RATE));
-  
-  // Do these channels (second argument) need to be different? Or does each timer have its own TC_CCA?
-  tc_write_cc(&SESNORCOLLECTION_100Hz, TC_CCA, 24000); // TODO: Come up with a general eqn
-  tc_write_cc(&SESNORCOLLECTION_400Hz, TC_CCA, 24000); // TODO: Come up with a general eqn
-  tc_write_cc(&SESNORCOLLECTION_800Hz, TC_CCA, 24000); // TODO: Come up with a general eqn
+  tc_write_period(&SESNORCOLLECTION_100Hz, F_CPU / (8 * BASE_HERTZ_MODIFIER));
+  tc_write_period(&SESNORCOLLECTION_400Hz, F_CPU / (2 * BASE_HERTZ_MODIFIER));
+  tc_write_period(&SESNORCOLLECTION_800Hz, F_CPU / (BASE_HERTZ_MODIFIER));
   
   tc_set_overflow_interrupt_callback(&SESNORCOLLECTION_100Hz, protocol_timer1_overflow_handler);
   tc_set_overflow_interrupt_callback(&SESNORCOLLECTION_400Hz, protocol_timer2_overflow_handler);
