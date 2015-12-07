@@ -41,7 +41,7 @@ int main(void)
   ioport_set_pin_dir(LEDA, IOPORT_DIR_OUTPUT);
   ioport_set_pin_dir(LEDB, IOPORT_DIR_OUTPUT);
   
-  ioport_set_pin_dir(PWR, IOPORT_DIR_OUTPUT);
+  PORTQ.DIR = 0x0F;
   ioport_set_pin_high(PWR);
 
 	// start tasks
@@ -49,7 +49,7 @@ int main(void)
 	xTaskCreate(blink2, "blink2", 64, NULL, 2, NULL);
   // transceiver_start_task();
   
-  sensor_start_task();
+  // sensor_start_task();
 
 	vTaskStartScheduler();
 	
