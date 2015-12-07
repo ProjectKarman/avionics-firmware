@@ -14,6 +14,7 @@
 
 #define LEDA IOPORT_CREATE_PIN(PORTA, 0)
 #define LEDB IOPORT_CREATE_PIN(PORTA, 1)
+#define LEDC IOPORT_CREATE_PIN(PORTA, 2)
 
 void blink1(void *p);
 void blink2(void *p);
@@ -39,6 +40,7 @@ int main(void)
 
   ioport_set_pin_dir(LEDA, IOPORT_DIR_OUTPUT);
   ioport_set_pin_dir(LEDB, IOPORT_DIR_OUTPUT);
+  ioport_set_pin_dir(LEDC, IOPORT_DIR_OUTPUT);
 
 	// start tasks
 	xTaskCreate(blink1, "blink1", 64, NULL, 2, NULL);
@@ -48,4 +50,9 @@ int main(void)
 	vTaskStartScheduler();
 	
 	return 0;
+}
+
+void vApplicationStackOverflowHook( TaskHandle_t xTask,
+signed char *pcTaskName ) {
+  ioport_toggle_pin_level(LEDC);
 }

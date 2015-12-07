@@ -153,7 +153,7 @@ void nrf24l01p_init(void) {
 
   // Init SPI
   sysclk_enable_module(SYSCLK_PORT_C, PR_USART0_bm);
-  SPI_CNTL.CTRLA |= USART_RXCINTLVL_MED_gc;
+  //SPI_CNTL.CTRLA |= USART_RXCINTLVL_MED_gc;
   SPI_CNTL.CTRLB |= USART_TXEN_bm | USART_RXEN_bm;
   SPI_CNTL.CTRLC |= USART_CMODE_MSPI_gc;
   SPI_CNTL.CTRLC &= ~(USART_CHSIZE2_bm | USART_CHSIZE1_bm); // Set SPI Phase / Data order
@@ -307,32 +307,6 @@ uint8_t nrf24l01p_reset_interrupts(void)
   }
 }
 
-uint8_t nrf24l01p_reset_interrupts_async(nrf24l01p_callback_t callback)
-{
-  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    const uint8_t value = STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS;
-    write_register_async(REG_STATUS, &value, 1, callback);
-
-    return 0;
-  }
-  else {
-    return 1;
-  }
-}
-
-uint8_t nrf24l01p_reset_interrupts_async_from_isr(nrf24l01p_callback_t callback)
-{
-  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    const uint8_t value = STATUS_MAX_RT | STATUS_RX_DR | STATUS_TX_DS;
-    write_register_async(REG_STATUS, &value, 1, callback);
-
-    return 0;
-  }
-  else {
-    return 1;
-  }
-}
-
 uint8_t nrf24l01p_set_channel(uint8_t channel_num)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
@@ -424,36 +398,12 @@ uint8_t nrf24l01p_send_payload(uint8_t *data, size_t data_len) {
   }
 }
 
-uint8_t nrf24l01p_send_payload_async(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
-  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    send_command_async(SPICMD_W_TX_PAYLOAD, data, data_len, callback);
-
-    return 0;
-  }
-  else {
-    return 1;
-  }
-}
-
-uint8_t nrf24l01p_send_payload_async_from_isr(uint8_t *data, uint8_t data_len, nrf24l01p_callback_t callback) {
-  if(xSemaphoreTakeFromISR(command_running_semaphore, NULL) == pdTRUE) {
-    send_command_async(SPICMD_W_TX_PAYLOAD, data, data_len, callback);
-    
-    return 0;
-  }
-  else {
-    return 1;
-  }
-}
-
 /*
  * The following function sync sends the reset command and then sends the next payload async then returns
  * It was implemented this way to meet the strict timing deadline of sending new payloads between interrupts
  */
 uint8_t nrf24l01p_reset_interrupts_and_send_payload_from_isr(uint8_t *data, uint8_t data_len) {
   if(xSemaphoreTakeFromISR(command_running_semaphore, NULL) == pdTRUE) {
-    SPI_CNTL.CTRLA &= USART_RXCINTLVL_gm; // Disable USART interrupt
-    
     // Reset Interrupts
     spi_startframe();
     SPI_CNTL.DATA = SPICMD_W_REGISTER(REG_STATUS);
@@ -474,7 +424,6 @@ uint8_t nrf24l01p_reset_interrupts_and_send_payload_from_isr(uint8_t *data, uint
     spi_endframe();
     SPI_CNTL.STATUS |= USART_TXCIF_bm;
     
-    SPI_CNTL.CTRLA |= USART_RXCINTLVL_MED_gc;
     
     xSemaphoreGive(command_running_semaphore);
     return 0;
@@ -520,7 +469,19 @@ static void write_register_async(uint8_t address, uint8_t const *new_value, uint
   send_command_async(SPICMD_W_REGISTER(address), new_value, value_len, callback);
 }
 
-static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len) { 
+static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len) {
+  // Send Payload
+  spi_startframe();
+  SPI_CNTL.DATA = command;
+  for(uint8_t i = 0; i < data_len; i++) {
+    while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+    SPI_CNTL.DATA = data[i];
+  }
+  while(!(SPI_CNTL.STATUS & USART_TXCIF_bm));
+  spi_endframe();
+  SPI_CNTL.STATUS |= USART_TXCIF_bm;
+  
+  /*
   if(data) {
     memcpy(op_buffer, data, data_len);
   }
@@ -536,9 +497,12 @@ static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len)
   // Fill TX FIFO
   SPI_CNTL.DATA = command;
   while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
-  SPI_CNTL.DATA = data[0];
+  if(data_len) {
+    SPI_CNTL.DATA = data[0];
+  }  
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
   // SPI Frame is ended in the USART ISR
+  */
 }
 
 static void send_command_async(uint8_t command, uint8_t const *data, uint8_t data_len, nrf24l01p_callback_t callback) {

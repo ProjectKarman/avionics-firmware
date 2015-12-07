@@ -64,7 +64,7 @@
 #define configTIMER_TASK_STACK_DEPTH    configMINIMAL_STACK_SIZE
 
 /* Debug */
-#define configCHECK_FOR_STACK_OVERFLOW          0//0
+#define configCHECK_FOR_STACK_OVERFLOW          2
 #define configGENERATE_RUN_TIME_STATS           0//0
 #define portGET_RUN_TIME_COUNTER_VALUE          0//0
 #define INCLUDE_uxTaskGetStackHighWaterMark     1

@@ -53,9 +53,7 @@ static void add_message_to_frame(transceiver_message_t *new_message);
 static downlink_packet_t general_message_to_packet(general_message_t *message);
 static void prepare_transmit_frame(void);
 
-static void dma_xfer_complete_handler(void);
 static void nrf24l01p_interrupt_handler(void);
-static void nrf24l01p_reset_interrupt_handler(void);
 static void protocol_timer_overflow_handler(void);
 static void protocol_timer_cc_match_handler(void);
 
@@ -69,7 +67,6 @@ static downlink_frame_t *currently_building_frame;
 static downlink_frame_t *frame_to_send;
 static downlink_frame_t frame_1;
 static downlink_frame_t frame_2;
-
 
 void transceiver_start_task(void) {
   xTaskCreate(transceiver_task_loop, "transceiver", 1536, NULL, 2, &transceiver_task_handle);
@@ -182,10 +179,15 @@ static void prepare_transmit_frame(void) {
   downlink_frame_init(currently_building_frame);
 
   downlink_frame_write_header(frame_to_send);
-  downlink_packet_t first_packet;
-  downlink_frame_get_next_packet(frame_to_send, &first_packet);
+  downlink_packet_t packet;
 
-  nrf24l01p_send_payload_async(first_packet.bytes, first_packet.len, dma_xfer_complete_handler);
+  for(uint8_t i; i < 3; i++) {
+    if(downlink_frame_get_next_packet(frame_to_send, &packet)) {
+      break;
+    }
+    nrf24l01p_send_payload(packet.bytes, packet.len);
+    fifo_fill_depth++;
+  }
 }
 
 static void add_message_to_frame(transceiver_message_t *new_message) {
@@ -214,32 +216,6 @@ static downlink_packet_t general_message_to_packet(general_message_t *message) {
   return packet;
 }
 
-static void dma_xfer_complete_handler(void) {
-  switch(state) {
-    case TRANSCEIVER_STATE_PREPARING:
-      fifo_fill_depth++;
-      if(fifo_fill_depth < 3) {
-        downlink_packet_t packet;
-        if(!downlink_frame_get_next_packet(frame_to_send, &packet)) {
-          nrf24l01p_send_payload_async_from_isr(packet.bytes, packet.len, dma_xfer_complete_handler);
-        }
-      }
-      break;
-    case TRANSCEIVER_STATE_TRANSMITTING:
-      // DMA Payload transfer just completed
-      fifo_fill_depth++;
-      if(is_interrupt_reset_defered) {
-        //nrf24l01p_reset_interrupts_async_from_isr(nrf24l01p_reset_interrupt_handler);
-        is_interrupt_reset_defered = false;
-      }
-      break;
-    case TRANSCEIVER_STATE_RECEIVING:
-      break;
-    default:
-      break;
-  }
-}
-
 static void nrf24l01p_interrupt_handler(void) {
   switch(state) {
     case TRANSCEIVER_STATE_TRANSMITTING:
@@ -249,16 +225,17 @@ static void nrf24l01p_interrupt_handler(void) {
     downlink_packet_t packet;
     if(!downlink_frame_get_next_packet(frame_to_send, &packet)) {
       nrf24l01p_reset_interrupts_and_send_payload_from_isr(packet.bytes, packet.len);
+      fifo_fill_depth++;
     }
     else if(fifo_fill_depth == 0) {
       // No more packets to transmit
-      nrf24l01p_reset_interrupts_async_from_isr(NULL);
+      nrf24l01p_reset_interrupts();
       state = TRANSCEIVER_STATE_IDLE;
       nrf24l01p_end_operation();
       add_priority_event(TRANSCEIVER_EVENT_TX_FRAME_COMPLETE, NULL);
     }
     else {
-      nrf24l01p_reset_interrupts_async_from_isr(NULL);
+      nrf24l01p_reset_interrupts();
     }
     break;
     case TRANSCEIVER_STATE_RECEIVING:
@@ -268,10 +245,6 @@ static void nrf24l01p_interrupt_handler(void) {
     default:
     break;
   }
-}
-
-static void nrf24l01p_reset_interrupt_handler(void) {
-  
 }
 
 static void protocol_timer_overflow_handler(void) {
