@@ -95,7 +95,9 @@ static void write_register(uint8_t address, uint8_t *values, uint8_t len);
 static void write_register_async(uint8_t address, uint8_t *buffer, uint8_t len, l3g4200d_callback_t callback);
 static void read_register_single(uint8_t address);
 static void read_register(uint8_t address, uint8_t len);
+static void read_register_multi(uint8_t address, uint8_t len);
 static void read_register_async(uint8_t address, uint8_t len, l3g4200d_data_callback_t callback);
+static void read_register_async_multi(uint8_t address, uint8_t len, l3g4200d_data_callback_t callback);
 
 // Private variables
 static union {
@@ -468,20 +470,8 @@ uint8_t l3g4200d_setup_int1_duration(l3g4200d_bitfield_t bitfield){
 
 uint8_t l3g4200d_get_data(l3g4200d_raw_xyz_t *data){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
-    uint8_t buffer[DATA_READ_LENGTH];
-    read_register_single(REG_OUT_X_L);
-    buffer[0] = op_buffer[1];
-    read_register_single(REG_OUT_X_H);
-    buffer[1] = op_buffer[1];
-    read_register_single(REG_OUT_Y_L);
-    buffer[2] = op_buffer[1];
-    read_register_single(REG_OUT_Y_H);
-    buffer[3] = op_buffer[1];
-    read_register_single(REG_OUT_Z_L);
-    buffer[4] = op_buffer[1];
-    read_register_single(REG_OUT_Z_H);
-    buffer[5] = op_buffer[1];
-    raw_xyz_pack_from_buffer(data, buffer);
+    read_register_multi(REG_OUT_X_L, DATA_READ_LENGTH);
+    raw_xyz_pack_from_buffer(data, op_buffer);
     xSemaphoreGive(command_running_semaphore);
     
     return 0;
@@ -490,10 +480,10 @@ uint8_t l3g4200d_get_data(l3g4200d_raw_xyz_t *data){
     return 1;
   }
 }
-//CURRENTLY DOES NOT WORK
+
 uint8_t l3g4200d_get_data_async(l3g4200d_data_callback_t callback){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
-    read_register_async(REG_STATUS_REG, DATA_READ_LENGTH, callback);
+    read_register_async_multi(REG_OUT_X_L, DATA_READ_LENGTH, callback);
     
     return 0;
   }
@@ -501,10 +491,10 @@ uint8_t l3g4200d_get_data_async(l3g4200d_data_callback_t callback){
     return 1;
   }
 }
-//CURRENTLY DOES NOT WORK
+
 uint8_t l3g4200d_get_data_async_from_isr(l3g4200d_data_callback_t callback){
   if(xSemaphoreTakeFromISR(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
-    read_register_async(REG_STATUS_REG, DATA_READ_LENGTH, callback);
+    read_register_async_multi(REG_OUT_X_L, DATA_READ_LENGTH, callback);
     
     return 0;
   }
@@ -548,9 +538,9 @@ static inline void spi_endframe(void) {
 }
 
 static inline void raw_xyz_pack_from_buffer(l3g4200d_raw_xyz_t *raw_xyz, uint8_t *buffer) {
-  raw_xyz->x = (uint16_t)buffer[1] << 8 | (uint16_t)buffer[0];
-  raw_xyz->y = (uint16_t)buffer[3] << 8 | (uint16_t)buffer[1];
-  raw_xyz->z = (uint16_t)buffer[5] << 8 | (uint16_t)buffer[2];
+  raw_xyz->x = (uint16_t)buffer[2] << 8 | (uint16_t)buffer[1];
+  raw_xyz->y = (uint16_t)buffer[4] << 8 | (uint16_t)buffer[3];
+  raw_xyz->z = (uint16_t)buffer[6] << 8 | (uint16_t)buffer[5];
 }
 
 static inline void write_register_single(uint8_t address, uint8_t values){
@@ -587,8 +577,23 @@ static inline void read_register_single(uint8_t address){
   read_register(address, 1);
 }
 
+
 static void read_register(uint8_t address, uint8_t len){
   op_buffer[0] = SPICMD_R_REGISTER(address);
+  memset(op_buffer, DUMMY_DATA, len);
+  op_len = len + SPICMD_LEN;
+  op_buffer_index = 1;
+  op_type = CMD_TYPE_READ;
+  
+  spi_startframe();
+  SPI_CTRL.DATA = SPICMD_R_REGISTER(address);
+  while(!(SPI_CTRL.STATUS & USART_DREIF_bm));
+  SPI_CTRL.DATA = DUMMY_DATA;
+  xSemaphoreTake(command_complete_semaphore, portMAX_DELAY);
+}
+
+static void read_register_multi(uint8_t address, uint8_t len){
+  op_buffer[0] = SPICMD_R_REGISTER_INC(address);
   memset(op_buffer, DUMMY_DATA, len);
   op_len = len + SPICMD_LEN;
   op_buffer_index = 1;
@@ -610,6 +615,19 @@ static void read_register_async(uint8_t address, uint8_t len, l3g4200d_data_call
   
   spi_startframe();
   SPI_CTRL.DATA = SPICMD_R_REGISTER(address);
+  while(!(SPI_CTRL.STATUS & USART_DREIF_bm));
+  SPI_CTRL.DATA = DUMMY_DATA;
+}
+
+static void read_register_async_multi(uint8_t address, uint8_t len, l3g4200d_data_callback_t callback){
+  write_function_callback = callback;
+  op_buffer[0] = SPICMD_R_REGISTER_INC(address);
+  op_len = len + SPICMD_LEN;
+  op_buffer_index = 1;
+  op_type = CMD_TYPE_READ_ASYNC;
+  
+  spi_startframe();
+  SPI_CTRL.DATA = SPICMD_R_REGISTER_INC(address);
   while(!(SPI_CTRL.STATUS & USART_DREIF_bm));
   SPI_CTRL.DATA = DUMMY_DATA;
 }
