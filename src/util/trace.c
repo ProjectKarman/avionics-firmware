@@ -18,12 +18,12 @@ void trace_init(void) {
 
 void task_in(uint8_t task) {
   if(task == 1) {
-    ioport_set_pin_high(DEBUG_0);
+    //ioport_set_pin_high(DEBUG_0);
   }
 }
 
 void task_out(uint8_t task) {
   if(task == 1) {
-    ioport_set_pin_low(DEBUG_0);
+    //ioport_set_pin_low(DEBUG_0);
   }
 }
