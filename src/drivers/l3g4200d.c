@@ -16,12 +16,12 @@
 #include "semphr.h"
 
 // IO definitions
-#define SPI_CS_PIN IOPORT_CREATE_PIN(PORTE, 5)
-#define SPI_MISO_PIN IOPORT_CREATE_PIN(PORTD, 6)
-#define SPI_MOSI_PIN IOPORT_CREATE_PIN(PORTD, 7)
-#define SPI_SCLK_PIN IOPORT_CREATE_PIN(PORTD, 5)
-#define INT1_PIN IOPORT_CREATE_PIN(PORTE, 6)
-#define INT2_PIN IOPORT_CREATE_PIN(PORTE, 7)
+#define SPI_CS_PIN IOPORT_CREATE_PIN(PORTC, 4)
+#define SPI_MISO_PIN IOPORT_CREATE_PIN(PORTC, 6)
+#define SPI_MOSI_PIN IOPORT_CREATE_PIN(PORTC, 7)
+#define SPI_SCLK_PIN IOPORT_CREATE_PIN(PORTC, 5)
+#define INT1_PIN IOPORT_CREATE_PIN(PORTB, 0)
+#define INT2_PIN IOPORT_CREATE_PIN(PORTB, 1)
 
 //registers
 #define REG_WHO_AM_I 0x0F
@@ -65,7 +65,7 @@
 #define SPICMD_LEN 1
 
 // peripheral definitions
-#define SPI_CTRL USARTD1
+#define SPI_CTRL USARTC1
 #define F_PER 32000000
 #define DESIRED_BITRATE 10000000
 #define USART_BSEL 16 // (F_PER / (2 * DESIRED_BITRATE) - 1)
@@ -186,7 +186,7 @@ void l3g4200d_init() {
   arch_ioport_pin_to_base(INT2_PIN)->INTCTRL |= PORT_INT0LVL_MED_gc;
 
   //configure USART
-  sysclk_enable_module(SYSCLK_PORT_D, PR_USART1_bm);
+  sysclk_enable_module(SYSCLK_PORT_C, PR_USART1_bm);
   SPI_CTRL.CTRLA |= USART_RXCINTLVL_MED_gc;
   SPI_CTRL.CTRLB |= USART_TXEN_bm | USART_RXEN_bm;
   SPI_CTRL.CTRLC |= USART_CMODE_MSPI_gc;
@@ -218,7 +218,7 @@ uint8_t l3g4200d_check_comms(void){
   }
 }
 
-uint8_t l3g4200d_setup_fifo_mode(enum l3g4200d_fifo_mode fifo_mode){
+uint8_t l3g4200d_set_fifo_mode(enum l3g4200d_fifo_mode fifo_mode){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_fifo_ctrl_reg_config.f_mode = fifo_mode;
     write_register_single(REG_FIFO_CTRL_REG, local_fifo_ctrl_reg_config.raw);
@@ -231,7 +231,7 @@ uint8_t l3g4200d_setup_fifo_mode(enum l3g4200d_fifo_mode fifo_mode){
   }
 }
 
-uint8_t l3g4200d_setup_fifo_watermark(uint8_t watermark){
+uint8_t l3g4200d_set_fifo_watermark(uint8_t watermark){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_fifo_ctrl_reg_config.f_wmrk = watermark;
     write_register_single(REG_FIFO_CTRL_REG, local_fifo_ctrl_reg_config.raw);
@@ -244,7 +244,7 @@ uint8_t l3g4200d_setup_fifo_watermark(uint8_t watermark){
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg1_dr_bw(enum l3g4200d_ctrl_reg1_odr_bw odr_bw_select){
+uint8_t l3g4200d_set_datarate_and_bandwidth(enum l3g4200d_ctrl_reg1_odr_bw odr_bw_select){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg1_config.odr_bw = odr_bw_select;
     write_register_single(REG_CTRL_REG1, local_ctrl_reg1_config.raw);
@@ -257,7 +257,7 @@ uint8_t l3g4200d_setup_ctrl_reg1_dr_bw(enum l3g4200d_ctrl_reg1_odr_bw odr_bw_sel
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg2_hp(enum l3g4200d_ctrl_reg2_hp_mode hp_mode){
+uint8_t l3g4200d_set_highpass_filter_mode(enum l3g4200d_ctrl_reg2_hp_mode hp_mode){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg2_config.hp_mode = hp_mode;
     write_register_single(REG_CTRL_REG2, local_ctrl_reg2_config.raw);
@@ -270,7 +270,7 @@ uint8_t l3g4200d_setup_ctrl_reg2_hp(enum l3g4200d_ctrl_reg2_hp_mode hp_mode){
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg2_hp_cutoff(enum l3g4200d_ctrl_reg2_hp_cutoff hp_cutoff){
+uint8_t l3g4200d_set_highpass_filter_cutoff(enum l3g4200d_ctrl_reg2_hp_cutoff hp_cutoff){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg2_config.hp_cutoff = hp_cutoff;
     write_register_single(REG_CTRL_REG2, local_ctrl_reg2_config.raw);
@@ -296,7 +296,7 @@ uint8_t l3g4200d_setup_ctrl_reg3(l3g4200d_bitfield_t bitfield){
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg4_fs_select(enum l3g4200d_ctrl_reg4_fs_select fs_select){
+uint8_t l3g4200d_setup_full_scale_select(enum l3g4200d_ctrl_reg4_fs_select fs_select){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg4_config.fs_sel = fs_select;
     write_register_single(REG_CTRL_REG4, local_ctrl_reg4_config.raw);
@@ -309,7 +309,7 @@ uint8_t l3g4200d_setup_ctrl_reg4_fs_select(enum l3g4200d_ctrl_reg4_fs_select fs_
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg4_self_test_enable(enum l3g4200d_ctrl_reg4_self_test_enable self_test){
+uint8_t l3g4200d_setup_self_test(enum l3g4200d_ctrl_reg4_self_test_enable self_test){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg4_config.self_test_en = self_test;
     write_register_single(REG_CTRL_REG4, local_ctrl_reg4_config.raw);
@@ -322,7 +322,7 @@ uint8_t l3g4200d_setup_ctrl_reg4_self_test_enable(enum l3g4200d_ctrl_reg4_self_t
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg4_spi_mode_select(enum l3g4200d_ctrl_reg4_spi_mode spi_mode){
+uint8_t l3g4200d_select_spi_mode(enum l3g4200d_ctrl_reg4_spi_mode spi_mode){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg4_config.s_mode = spi_mode;
     write_register_single(REG_CTRL_REG4, local_ctrl_reg4_config.raw);
@@ -335,7 +335,7 @@ uint8_t l3g4200d_setup_ctrl_reg4_spi_mode_select(enum l3g4200d_ctrl_reg4_spi_mod
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg5_fifo_enable(bool enable){
+uint8_t l3g4200d_enable_fifo(bool enable){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg5_config.fifo_en = enable;
     write_register_single(REG_CTRL_REG5, local_ctrl_reg5_config.raw);
@@ -348,7 +348,7 @@ uint8_t l3g4200d_setup_ctrl_reg5_fifo_enable(bool enable){
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg5_hp_filter_enable(bool enable){
+uint8_t l3g4200d_enable_highpass_filter(bool enable){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg5_config.hp_en = enable;
     write_register_single(REG_CTRL_REG5, local_ctrl_reg5_config.raw);
@@ -361,7 +361,7 @@ uint8_t l3g4200d_setup_ctrl_reg5_hp_filter_enable(bool enable){
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg5_int1_sel(enum l3g4200d_ctrl_reg5_int1_sel int1_sel){
+uint8_t l3g4200d_interrupt1_select(enum l3g4200d_ctrl_reg5_int1_sel int1_sel){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg5_config.int1_sel = int1_sel;
     write_register_single(REG_CTRL_REG5, local_ctrl_reg5_config.raw);
@@ -374,7 +374,7 @@ uint8_t l3g4200d_setup_ctrl_reg5_int1_sel(enum l3g4200d_ctrl_reg5_int1_sel int1_
   }
 }
 
-uint8_t l3g4200d_setup_ctrl_reg5_out_sel(enum l3g4200d_ctrl_reg5_out_sel out_sel){
+uint8_t l3g4200d_output_select(enum l3g4200d_ctrl_reg5_out_sel out_sel){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_ctrl_reg5_config.out_sel = out_sel;
     write_register_single(REG_CTRL_REG5, local_ctrl_reg5_config.raw);
@@ -387,7 +387,7 @@ uint8_t l3g4200d_setup_ctrl_reg5_out_sel(enum l3g4200d_ctrl_reg5_out_sel out_sel
   }
 }
 
-uint8_t l3g4200d_setup_int1_cfg(l3g4200d_bitfield_t bitfield){
+uint8_t l3g4200d_setup_interrup1(l3g4200d_bitfield_t bitfield){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_int1_cfg_config = bitfield;
     write_register_single(REG_INT1_CFG, local_int1_cfg_config);
@@ -400,7 +400,7 @@ uint8_t l3g4200d_setup_int1_cfg(l3g4200d_bitfield_t bitfield){
   }
 }
 
-uint8_t l3g4200d_setup_int1_ths_x(uint16_t threshold){
+uint8_t l3g4200d_set_interrupt1_x_threshold(uint16_t threshold){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_int1_ths_x_config = threshold;
     write_register_single(REG_INT1_TSH_XH, SPICMD_THS_H_REG(local_int1_ths_x_config));
@@ -414,7 +414,7 @@ uint8_t l3g4200d_setup_int1_ths_x(uint16_t threshold){
   }
 }
 
-uint8_t l3g4200d_setup_int1_ths_y(uint16_t threshold){
+uint8_t l3g4200d_set_interrupt1_y_threshold(uint16_t threshold){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_int1_ths_y_config = threshold;
     write_register_single(REG_INT1_TSH_YH, SPICMD_THS_H_REG(local_int1_ths_y_config));
@@ -428,7 +428,7 @@ uint8_t l3g4200d_setup_int1_ths_y(uint16_t threshold){
   }
 }
 
-uint8_t l3g4200d_setup_int1_ths_z(uint16_t threshold){
+uint8_t l3g4200d_set_interrupt1_z_threshold(uint16_t threshold){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_int1_ths_z_config = threshold;
     write_register_single(REG_INT1_TSH_ZH, SPICMD_THS_H_REG(local_int1_ths_z_config));
@@ -442,7 +442,7 @@ uint8_t l3g4200d_setup_int1_ths_z(uint16_t threshold){
   }
 }
 
-uint8_t l3g4200d_setup_int1_wait_enable(bool enable){
+uint8_t l3g4200d_enable_interrup1_wait(bool enable){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_int1_duration_config.wait = enable;
     write_register_single(REG_INT1_DURATION, local_int1_duration_config.raw);
@@ -455,7 +455,7 @@ uint8_t l3g4200d_setup_int1_wait_enable(bool enable){
   }
 }
 
-uint8_t l3g4200d_setup_int1_duration(l3g4200d_bitfield_t bitfield){
+uint8_t l3g4200d_set_interrupt1_duration(l3g4200d_bitfield_t bitfield){
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE){
     local_int1_duration_config.d_val = SPICMD_INT1_DURATION(bitfield);
     write_register_single(REG_INT1_CFG, local_int1_duration_config.raw);
@@ -538,9 +538,9 @@ static inline void spi_endframe(void) {
 }
 
 static inline void raw_xyz_pack_from_buffer(l3g4200d_raw_xyz_t *raw_xyz, uint8_t *buffer) {
-  raw_xyz->x = (uint16_t)buffer[2] << 8 | (uint16_t)buffer[1];
-  raw_xyz->y = (uint16_t)buffer[4] << 8 | (uint16_t)buffer[3];
-  raw_xyz->z = (uint16_t)buffer[6] << 8 | (uint16_t)buffer[5];
+  raw_xyz->x = (uint16_t)buffer[1] << 8 | (uint16_t)buffer[0];
+  raw_xyz->y = (uint16_t)buffer[3] << 8 | (uint16_t)buffer[2];
+  raw_xyz->z = (uint16_t)buffer[5] << 8 | (uint16_t)buffer[4];
 }
 
 static inline void write_register_single(uint8_t address, uint8_t values){
@@ -632,7 +632,7 @@ static void read_register_async_multi(uint8_t address, uint8_t len, l3g4200d_dat
   SPI_CTRL.DATA = DUMMY_DATA;
 }
 
-ISR(USARTD1_RXC_vect) {
+ISR(USARTC1_RXC_vect) {
   if(op_buffer_index + 2 < op_len) {
     SPI_CTRL.DATA = op_buffer[op_buffer_index];
   }    
@@ -640,10 +640,10 @@ ISR(USARTD1_RXC_vect) {
     op_buffer[0] = SPI_CTRL.DATA;
   }
   else if(op_buffer_index + 1 < op_len) {
-    op_buffer[op_buffer_index - 1] = SPI_CTRL.DATA;
+    op_buffer[op_buffer_index - 2] = SPI_CTRL.DATA;
   }
   else {
-    op_buffer[op_buffer_index - 1] = SPI_CTRL.DATA;
+    op_buffer[op_buffer_index - 2] = SPI_CTRL.DATA;
     if(op_type & ASYNC_CMD_TYPE_MASK) {
       spi_endframe();
       xSemaphoreGiveFromISR(command_running_semaphore, NULL);
@@ -664,13 +664,13 @@ ISR(USARTD1_RXC_vect) {
   op_buffer_index++;
 }
 
-ISR(PORTE_INT0_vect) {
-  if(PORTE.IN & ioport_pin_to_mask(INT1_PIN)){
+ISR(PORTB_INT0_vect) {
+  if(PORTB.IN & ioport_pin_to_mask(INT1_PIN)){
     if(int1_pin_callback){
       int1_pin_callback();
     }
   }
-  else if(PORTE.IN & ioport_pin_to_mask(INT2_PIN)){
+  else if(PORTB.IN & ioport_pin_to_mask(INT2_PIN)){
     if(int2_pin_callback){
       int2_pin_callback();
     }
