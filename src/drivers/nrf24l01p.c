@@ -44,9 +44,9 @@
 #define SPI_MOSI_PIN IOPORT_CREATE_PIN(PORTC, 3)
 #define SPI_MISO_PIN IOPORT_CREATE_PIN(PORTC, 2)
 #define SPI_SCLK_PIN IOPORT_CREATE_PIN(PORTC, 1)
-#define SPI_CS_PIN IOPORT_CREATE_PIN(PORTB, 6)
-#define CE_PIN IOPORT_CREATE_PIN(PORTB, 7)
-#define IRQ_PIN IOPORT_CREATE_PIN(PORTC, 0)
+#define SPI_CS_PIN IOPORT_CREATE_PIN(PORTC, 0)
+#define CE_PIN IOPORT_CREATE_PIN(PORTK, 0)
+#define IRQ_PIN IOPORT_CREATE_PIN(PORTK, 1)
 
 // USART Peripheral
 #define SPI_CNTL USARTC0
@@ -475,34 +475,17 @@ static void send_command(uint8_t command, uint8_t const *data, uint8_t data_len)
   SPI_CNTL.DATA = command;
   for(uint8_t i = 0; i < data_len; i++) {
     while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
+    if(i == 1) {
+      local_reg_status.raw = SPI_CNTL.DATA;
+    }
+    else if(i > 1) {
+      op_buffer[i - 2] = SPI_CNTL.DATA;
+    }
     SPI_CNTL.DATA = data[i];
   }
   while(!(SPI_CNTL.STATUS & USART_TXCIF_bm));
   spi_endframe();
   SPI_CNTL.STATUS |= USART_TXCIF_bm;
-  
-  /*
-  if(data) {
-    memcpy(op_buffer, data, data_len);
-  }
-  else {
-    memset(op_buffer, DUMMY_DATA, data_len);
-  }
-  
-  current_command_type = CMD_TYPE_SYNC;
-  op_buffer_index = 1;
-  op_len = data_len;
-
-  spi_startframe();
-  // Fill TX FIFO
-  SPI_CNTL.DATA = command;
-  while(!(SPI_CNTL.STATUS & USART_DREIF_bm));
-  if(data_len) {
-    SPI_CNTL.DATA = data[0];
-  }  
-  xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
-  // SPI Frame is ended in the USART ISR
-  */
 }
 
 static void send_command_async(uint8_t command, uint8_t const *data, uint8_t data_len, nrf24l01p_callback_t callback) {
@@ -532,7 +515,7 @@ static void spi_endframe() {
   ioport_set_pin_level(SPI_CS_PIN, IOPORT_PIN_LEVEL_HIGH);
 }
 
-ISR(PORTC_INT0_vect) {
+ISR(PORTK_INT0_vect) {
   if(interrupt_callback) {
     interrupt_callback();
   }
