@@ -105,9 +105,9 @@ enum l3g4200d_ctrl_reg3_setup {
 
 
 typedef struct {
-	int16_t x;
-	int16_t y;
-	int16_t z;
+	uint16_t x;
+	uint16_t y;
+	uint16_t z;
 } l3g4200d_raw_xyz_t;
 
 typedef uint8_t l3g4200d_bitfield_t;
