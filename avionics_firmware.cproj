@@ -431,6 +431,12 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\drivers\l3g4200d.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\l3g4200d.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\drivers\ms5607_02ba.c">
       <SubType>compile</SubType>
     </Compile>
