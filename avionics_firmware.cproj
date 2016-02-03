@@ -430,11 +430,14 @@
 </AvrGcc>
     </ToolchainSettings>
   </PropertyGroup>
+<<<<<<< HEAD
   <ItemGroup>
     <Compile Include="src\drivers\ms5607_02ba.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\drivers\ms5607_02ba.h">
+	  <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\drivers\uart_io.c">
       <SubType>compile</SubType>
     </Compile>
@@ -448,6 +451,12 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\tasks\sensor.h">
+    <Compile Include="src\tasks\command_prompt.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\tasks\command_prompt.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\tasks\command_prompt.c">
       <SubType>compile</SubType>
     </Compile>
