@@ -430,7 +430,6 @@
 </AvrGcc>
     </ToolchainSettings>
   </PropertyGroup>
-<<<<<<< HEAD
   <ItemGroup>
     <Compile Include="src\drivers\ms5607_02ba.c">
       <SubType>compile</SubType>
