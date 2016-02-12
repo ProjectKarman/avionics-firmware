@@ -450,6 +450,8 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\tasks\sensor.h">
+	  <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\tasks\command_prompt.c">
       <SubType>compile</SubType>
     </Compile>
