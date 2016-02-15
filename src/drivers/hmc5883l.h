@@ -41,24 +41,37 @@ enum hmc5883l_reg_t {
 };
 
 
+//Data is base 16
 typedef struct {
-	int16_t x_angle;
-	int16_t y_angle;
-	int16_t z_angle;
+	int16_t x_magnitude;
+	int16_t y_magnitude;
+	int16_t z_magnitude;
+} hmc5883l_rawdata_t;
+
+//Angles are base 10
+typedef struct {
+	int yaw;
+	int pitch;
+	int roll;
 } hmc5883l_angle_t;
 
-/*Read position data from magnetometer
+/*Read raw data from magnetometer
 	PRECONDITION: measurement mode has been set to single
 	Sends I2C messages to module to read starting at register 3 (XMSB)
-	Stores the result in a angle_t struct passed as a parameter
+	Stores the result in a rawdata_t struct passed as a parameter
 */
-void hmc5883l_read_data_single (hmc5883l_angle_t *angle_ptr);
+void hmc5883l_read_data_single (hmc5883l_rawdata_t *rawdata_ptr);
 
-/*Read position data from magnetometer
+/*Read raw data from magnetometer
 	PRECONDITION: measurement mode has been set to continuous
 	Sends I2C messages to module to read starting at register 3 (XMSB)
-	Stores the result in a angle_t struct passed as a parameter
+	Stores the result in a rawdata_t struct passed as a parameter
 */
-void hmc5883l_read_data_continuous (hmc5883l_angle_t *angle_ptr);
+void hmc5883l_read_data_continuous (hmc5883l_rawdata_t *rawdata_ptr);
+
+/*Convert raw data to yaw pitch roll
+	takes copy of raw data and returns an angle_t struct
+*/
+hmc5883l_angle_t hmc5883l_get_angles(hmc5883l_rawdata_t rawdata);
 
 #endif /* HMC5883L_H_ */
