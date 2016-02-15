@@ -55,6 +55,9 @@ typedef struct {
 	int roll;
 } hmc5883l_angle_t;
 
+/* Initialize TWI (I2C) interface and prepare OS level structures */
+void hmc5883l_init();
+
 /*Read raw data from magnetometer
 	PRECONDITION: measurement mode has been set to single
 	Sends I2C messages to module to read starting at register 3 (XMSB)
