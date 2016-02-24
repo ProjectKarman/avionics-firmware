@@ -3,7 +3,7 @@
  *
  * Created: 10/8/2015 5:20:31 PM
  *  Author: Nigil Lee
- */ 
+ */
 
 #include <stdbool.h>
 #include <string.h>
@@ -96,7 +96,7 @@ transceiver_message_t transceiver_message_create(enum transceiver_message_type t
 }
 
 static void transceiver_task_loop(void *p) {
-  init_nrf24l01p(); 
+  init_nrf24l01p();
   init_timer();
 
   currently_building_frame = &frame_1;
@@ -106,7 +106,7 @@ static void transceiver_task_loop(void *p) {
   transceiver_event_t currentEvent;
   for(;;) {
     xQueueReceive(event_queue, &currentEvent, portMAX_DELAY);
-    
+
     switch(currentEvent.type) {
       case TRANSCEIVER_EVENT_MESSAGE_SENT:
         add_message_to_frame((transceiver_message_t *)currentEvent.data);
@@ -120,7 +120,7 @@ static void transceiver_task_loop(void *p) {
         };
 
         transceiver_message_t message = transceiver_message_create(TRANSCEIVER_MSG_TYPE_GENERAL, &content);
-        
+
         transceiver_send_message(message, 0);
         transceiver_send_message(message, 0);
         transceiver_send_message(message, 0);
@@ -193,7 +193,7 @@ static void add_message_to_frame(transceiver_message_t *new_message) {
   switch(new_message->type) {
     case TRANSCEIVER_MSG_TYPE_GENERAL:
       packet = general_message_to_packet((general_message_t *)new_message->data);
-      
+
       break;
   }
   downlink_frame_add_packet(currently_building_frame, &packet);
@@ -203,7 +203,7 @@ static void add_message_to_frame(transceiver_message_t *new_message) {
  * The following section of functions converts specific message types to packets that can be
  *  sent by the transceiver.
  *
- * Based on the protocol format we need to use pointer arithmetic to offset the copy so 
+ * Based on the protocol format we need to use pointer arithmetic to offset the copy so
  *  downlink frame function can insert their packet index
  */
 
@@ -271,7 +271,7 @@ static void nrf24l01p_interrupt_handler(void) {
 }
 
 static void nrf24l01p_reset_interrupt_handler(void) {
-  
+
 }
 
 static void protocol_timer_overflow_handler(void) {

@@ -28,14 +28,14 @@
 #define BASE_HERTZ_MODIFIER 40000
 
 enum sensor_queue_state_type {
-	SENSOR_ENTRY_100Hz,
-	SENSOR_ENTRY_400Hz,
-	SENSOR_ENTRY_800Hz
+  SENSOR_ENTRY_100Hz,
+  SENSOR_ENTRY_400Hz,
+  SENSOR_ENTRY_800Hz
 };
 
 typedef struct {
-	enum sensor_queue_state_type type;
-	uint8_t data[EVENT_DATA_SIZE_MAX];
+  enum sensor_queue_state_type type;
+  uint8_t data[EVENT_DATA_SIZE_MAX];
 } sensor_timer_t;
 
 static QueueHandle_t sensor_queue;
@@ -75,12 +75,12 @@ static void sensor_task_loop() {
     switch(timer_update.type) {
       case SENSOR_ENTRY_800Hz:
         break;
-	  case SENSOR_ENTRY_400Hz:
-	    break;
+      case SENSOR_ENTRY_400Hz:
+        break;
       case SENSOR_ENTRY_100Hz:
         break;
     }
-	send_to_tranceiver();
+  send_to_tranceiver();
   }
 }
 
@@ -128,21 +128,21 @@ static void send_to_tranceiver() {
 }
 
 static void protocol_timer1_overflow_handler() {
-	add_priority_event(SENSOR_ENTRY_100Hz, NULL);
+  add_priority_event(SENSOR_ENTRY_100Hz, NULL);
 }
 
 static void protocol_timer2_overflow_handler() {
-	add_priority_event(SENSOR_ENTRY_400Hz, NULL);
+  add_priority_event(SENSOR_ENTRY_400Hz, NULL);
 }
 
 static void protocol_timer3_overflow_handler() {
-	add_priority_event(SENSOR_ENTRY_800Hz, NULL);
+  add_priority_event(SENSOR_ENTRY_800Hz, NULL);
 }
 
 static inline void add_priority_event(enum sensor_queue_state_type event_type, void *data) {
-	sensor_timer_t event = {
-		.type = event_type
-	};
-	memcpy(event.data, data, EVENT_DATA_SIZE_MAX);
-	xQueueSendToFrontFromISR(sensor_queue, &event, NULL);
+  sensor_timer_t event = {
+    .type = event_type
+  };
+  memcpy(event.data, data, EVENT_DATA_SIZE_MAX);
+  xQueueSendToFrontFromISR(sensor_queue, &event, NULL);
 };
