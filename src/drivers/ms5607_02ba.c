@@ -44,6 +44,8 @@
 #define P_MULTIPLICATIVE_OFFSET_1 2097152 // 2^21
 #define P_MULTIPLICATIVE_OFFSET_2 32768 // 2^1
 
+#define MAG_SHIFT 1024 // 2^10
+
 // Misc
 #define SEMAPHORE_BLOCK_TIME 0
 #define ASYNC_QUEUE_DEPTH 3
@@ -254,6 +256,44 @@ static void get_data_async(uint8_t read_len, ms5607_02ba_callback_t callback) {
   current_command_type = CMD_TYPE_READ_ASYNC;
   current_op_callback = callback;
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1 | 0x1;
+}
+
+rocket_temp_t ms5607_02ba_calculate_temp(uint32_t d2)	{
+  rocket_temp_t t;
+  rocket_temp_t dt;
+  rocket_temp_t tempvar1;
+  
+  dt = d2 - ((int32_t) prom_data.coefficient_5 * DT_MULTIPLICATIVE_OFFSET);
+  tempvar1 = (dt * ( prom_data.coefficient_6 / T_MULTIPLICATIVE_OFFSET));
+  t = ( (int32_t) 2000 * MAG_SHIFT) + tempvar1;
+  t = (int32_t) t / MAG_SHIFT;
+  return t;
+}
+
+rocket_press_t ms5607_02ba_calculate_press(uint32_t d1, uint32_t d2) {
+  rocket_press_t p;
+  int32_t dt;
+  int64_t off;
+  int64_t sens;
+  int64_t tempvar1;
+  int64_t tempvar2;
+  
+  dt = d2 - ((int32_t) prom_data.coefficient_5 * DT_MULTIPLICATIVE_OFFSET);
+  
+  tempvar2 = (int64_t) prom_data.coefficient_4 * dt;
+  tempvar1 = (int64_t) prom_data.coefficient_2 * OFF_MULTIPLICATIVE_OFFSET_1;
+  off = tempvar1 + ((int64_t) tempvar2 / OFF_MULTIPLICATIVE_OFFSET_2);
+  
+  tempvar1 = (int64_t) prom_data.coefficient_1 * SENS_MULTIPLICATIVE_OFFSET_1;
+  tempvar2 =  ( (int64_t) ( (int64_t) prom_data.coefficient_3 * dt) / SENS_MULTIPLICATIVE_OFFSET_2);
+  sens = tempvar1 + tempvar2;
+  
+  
+  tempvar1 = (int64_t) d1 * sens;
+  tempvar2 =  (int64_t) tempvar1 / P_MULTIPLICATIVE_OFFSET_1;  
+  p = (int64_t) (tempvar2 - off) / P_MULTIPLICATIVE_OFFSET_2;
+  
+  return p;
 }
 
 static inline uint32_t convert_buffer_24(uint8_t *buffer) {
