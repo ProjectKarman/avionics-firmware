@@ -43,6 +43,7 @@ typedef void (*nrf24l01p_callback_t)(void);
 
 // Driver Functions
 void nrf24l01p_init(void);
+uint8_t nrf24l01p_generate_carrier(void);
 uint8_t nrf24l01p_read_regs(void);
 uint8_t nrf24l01p_set_autoack_mask(uint8_t mask);
 uint8_t nrf24l01p_set_retransmission_delay(uint8_t delay);

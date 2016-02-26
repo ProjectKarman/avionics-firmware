@@ -68,6 +68,8 @@ static downlink_frame_t *frame_to_send;
 static downlink_frame_t frame_1;
 static downlink_frame_t frame_2;
 
+static uint16_t reset_time;
+
 void transceiver_start_task(void) {
   xTaskCreate(transceiver_task_loop, "transceiver", 1536, NULL, 2, &transceiver_task_handle);
   event_queue = xQueueCreate(EVENT_QUEUE_DEPTH, sizeof(transceiver_event_t));
@@ -92,7 +94,23 @@ transceiver_message_t transceiver_message_create(enum transceiver_message_type t
 static void transceiver_task_loop(void *p) {
   vTaskSetApplicationTaskTag( NULL, ( void * ) 1 );
   
-  init_nrf24l01p(); 
+  // Config RF Frontend
+  PORTK.DIR |= 0x7c;
+  PORTK.OUT |= 0x30;
+  
+  /*
+  nrf24l01p_wake();
+  nrf24l01p_generate_carrier();
+  nrf24l01p_set_pa_power(NRF24L01P_PWR_0DBM);
+  nrf24l01p_set_channel(20);
+  nrf24l01p_start_operation();
+  
+  for(;;) {
+    vTaskDelay(10);
+  }
+  */ 
+  
+  init_nrf24l01p();
   init_timer();
 
   currently_building_frame = &frame_1;
@@ -109,6 +127,14 @@ static void transceiver_task_loop(void *p) {
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_COMPLETE:
         state = TRANSCEIVER_STATE_IDLE;
+
+        if(reset_time == 1000) {
+          CPU_CCP = 0xD8;
+          RST.CTRL |= 0x1;
+        }
+        else {
+          reset_time++;
+        }
 
         general_message_t content = {
           .text = "Hello World!",
@@ -137,9 +163,9 @@ static void init_nrf24l01p(void) {
   nrf24l01p_flush_rx_fifo();
   nrf24l01p_flush_tx_fifo();
   nrf24l01p_reset_interrupts();
-  nrf24l01p_set_channel(20);
+  nrf24l01p_set_channel(50);
   nrf24l01p_set_data_rate(NRF24L01P_DR_2M);
-  nrf24l01p_set_pa_power(NRF24L01P_PWR_N18DBM);
+  nrf24l01p_set_pa_power(NRF24L01P_PWR_0DBM);
   nrf24l01p_set_interrupt_mask(NRF24L01P_INTR_MAX_RT);
   nrf24l01p_set_autoack_mask(0x0);
   nrf24l01p_set_retransmission_count(0);

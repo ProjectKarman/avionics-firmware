@@ -168,6 +168,20 @@ void nrf24l01p_init(void) {
   command_complete_semaphore = xSemaphoreCreateBinary();
 }
 
+uint8_t nrf24l01p_generate_carrier(void) {
+  if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
+    local_reg_rf_setup.cont_wave = 0x1;
+    local_reg_rf_setup.rf_pll_lock = 0x1;
+    write_register_single(REG_RF_SETUP, local_reg_rf_setup.raw);
+    xSemaphoreGive(command_running_semaphore);
+
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
 uint8_t nrf24l01p_read_regs(void)
 {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
