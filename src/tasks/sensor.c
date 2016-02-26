@@ -85,6 +85,7 @@ static void sensor_task_loop() {
 }  
 
 static void sensor_initialize() {
+  ms5607_02ba_init();
   ms5607_02ba_reset();
   ms5607_02ba_load_prom();
   
