@@ -62,7 +62,7 @@ typedef struct {
 typedef void (*hmc5883l_callback_t)(void);
 
 /* Initialize TWI (I2C) interface and prepare OS level structures */
-void hmc5883l_init();
+void hmc5883l_init(void);
 
 /*Read raw data from magnetometer
 	Sends I2C messages to module to read starting at register 3 (XMSB)
@@ -79,6 +79,6 @@ void hmc5883l_read_data_continuous (hmc5883l_rawdata_t *rawdata_ptr);
 /*Convert raw data to yaw pitch roll
 	takes copy of raw data and returns an angle_t struct
 */
-hmc5883l_angle_t hmc5883l_get_angles(hmc5883l_rawdata_t rawdata);
+void hmc5883l_get_angles(hmc5883l_rawdata_t rawdata);
 
 #endif /* HMC5883L_H_ */

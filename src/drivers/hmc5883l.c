@@ -25,8 +25,8 @@
 #define HMC5883L_BUFFER_SIZE 6
 
 #define HMC5883L_ADDRESS_BASE 0x7A
-#define HMC5883L_WRITE_ADDRESS 0x3C //ADDRESS_BASE << 1
-#define HMC5883L_READ_ADDRESS 0x3D  //ADDRESS_BASE << 1 | 0x01
+//#define HMC5883L_WRITE_ADDRESS 0x3C //ADDRESS_BASE << 1
+//#define HMC5883L_READ_ADDRESS 0x3D  //ADDRESS_BASE << 1 | 0x01
 
 
 // TWI Peripheral Config (copied from ms5607_02ba.c May need tweaking)
@@ -36,11 +36,19 @@
 #define TWI_BAUD_REG 35 // ((F_SYS / (2 * TWI_FREQ)) - 5)
 
 enum hmc5883l_command_type {
-	CMD_TYPE_WRITE,
 	CMD_TYPE_WRITE_ASYNC,
-	CMD_TYPE_READ,
+	CMD_TYPE_REQ_READ,
 	CMD_TYPE_READ_ASYNC
 };
+
+#ifndef lambda
+#define lambda(l_ret_type, l_arguments, l_body)         \
+({                                                    \
+  l_ret_type l_anonymous_functions_name l_arguments   \
+  l_body                                            \
+  &l_anonymous_functions_name;                        \
+})
+#endif
 
 //local variables
 static hmc5883l_rawdata_t rawdata;
@@ -51,6 +59,7 @@ static uint8_t op_buffer[HMC5883L_BUFFER_SIZE];
 static uint8_t op_buffer_len;
 volatile static uint8_t op_buffer_index;
 static hmc5883l_callback_t current_op_callback;
+static Status_bool_t sent_req_bytes;
 
 //local functions
 static void write_command_async(uint16_t cmd, hmc5883l_callback_t callback);
@@ -76,8 +85,8 @@ void hmc5883l_init(void){
 	//Set up task level structures
 
 	//Set options for configuration registers
-	write_command_async((HMC5883L_CRA << 8) & HMC5883L_CRA_DEFAULT, NULL);
-	write_command_async((HMC5883L_CRB << 8) & HMC5883L_CRB_DEFAULT, NULL);
+	write_command_async((HMC5883L_CRA << 8) & HMC5883L_CRA_DEFAULT, lambda(void, (void),{
+    write_command_async((HMC5883L_CRB << 8) & HMC5883L_CRB_DEFAULT, NULL); })); //First set CRA to the default, then CRB to the default
 }
 
 /**Send a write command asynchronously. i.e. tell the TWI hardware we want to write something
@@ -95,7 +104,7 @@ void write_command_async(uint16_t cmd, hmc5883l_callback_t callback) {
 	else					//Two byte command --> buffer length is 2
 		op_buffer_len = 2;
 	current_command_type = CMD_TYPE_WRITE_ASYNC;
-	current_op_callback = callback; //why do we need this again?
+	current_op_callback = callback;
 	//Inform the master that we want to write something to this address
 	TWI_MASTER.MASTER.ADDR = HMC5883L_ADDRESS_BASE << 1;
 }
@@ -105,11 +114,13 @@ void write_command_async(uint16_t cmd, hmc5883l_callback_t callback) {
 */
 void read_command_async(uint8_t read_len, hmc5883l_callback_t callback) {
 	//First we send how many bytes we want to read
-	op_buffer_index = 0;
-	op_buffer_len = read_len;
-	current_op_callback = callback; //Why do we need this again?
-	current_command_type = CMD_TYPE_READ_ASYNC;
-	TWI_MASTER.MASTER.ADDR - HMC5883L_ADDRESS_BASE << 1 | 0x01; //Tell slave to send us data
+  *op_buffer = read_len; //Store our requested bytes into the buffer
+  op_buffer_len = 1;
+  op_buffer_index = 0;
+	current_op_callback = callback;
+	current_command_type = CMD_TYPE_REQ_READ; //We're going to request a read
+  sent_req_bytes = 0; //we haven't told the slave how many bytes we want
+	TWI_MASTER.MASTER.ADDR = HMC5883L_ADDRESS_BASE << 1 | 0x01; //Tell slave to send us data
 }
 
 /** Read data from the compass once, and store its info in our raw data pointer 
@@ -117,22 +128,14 @@ void read_command_async(uint8_t read_len, hmc5883l_callback_t callback) {
 void hmc5883l_read_data_single (hmc5883l_rawdata_t* raw_data_ptr)
 {
 	//Should totes grab a "command running" semaphore here?
-	write_command_async((HMC5883L_MODE << 8) & HMC5883L_MODE_SINGLE, NULL);     //Send "Single measurement mode" message
-	//*****Wait 6 ms or monitor status register or DRDY hardware interrupt pin (??) ****
+	write_command_async((HMC5883L_MODE << 8) & HMC5883L_MODE_SINGLE, lambda(void, (void), {
+    read_command_async(HMC5883L_BUFFER_SIZE, NULL);}));     //Send "Single measurement mode" message, then Read six bytes
 
-	/*****
-	//This is where current op callbacks come in handy. We want to chain these calls so they happen one after
-	//another, probably using Nigel's magic lambda function stuff
-	******/
 
-	//The below isn't even right.... we want to send (read address) (0x06). Which is odd. 
-	//We're not just sending read, or sending write these bytes, we want to send read this many...?
-
-	//And also grab the semaphore here? we need to do like three things in this function
-	write_command_async(HMC5883L_BUFFER_SIZE, NULL); //tell slave we want to read 6 bytes
-	//We need to make sure we've sent this before we try to read
-	read_command_async(HMC5883L_BUFFER_SIZE, NULL); //Read six bytes
-
+  //Definitely need to check to make sure our data transfer is complete here
+  //while loop based on a volatile variable? semaphore status? check TWI_MASTER.MASTER.STATUS?
+  //We could use a data queue and have the ISR put stuff in it?
+  
 	//Store our data in our variable
 	raw_data_ptr->x_magnitude = (op_buffer[0] << 8) | op_buffer[1];
 	raw_data_ptr->y_magnitude = (op_buffer[2] << 8) | op_buffer[3];
@@ -206,7 +209,21 @@ ISR(TWIE_TWIM_vect)
 {
 	switch(current_command_type)
 	{
-	case CMD_TYPE_READ_ASYNC: //We're initiating a read command
+  case CMD_TYPE_REQ_READ: //We're telling the slave to get ready for a read
+      if(sent_req_bytes == 0) //We haven't already told the slave to get ready
+      {
+        TWI_MASTER.MASTER.DATA = op_buffer[op_buffer_index]; //We wrote how many bytes we want into the op_buffer, so send them out on the line
+        op_buffer_len = op_buffer[op_buffer_index];  //*op_buffer is our buffer length for the read, so let's make that our buffer_len
+        op_buffer_index = 0; //make sure buffer index is 0
+        sent_req_bytes = 1; //We just sent how many bytes we want
+      }
+      else //sent_req_bytes is 1, so we just sent how many bytes we want
+      {
+        TWI_MASTER.MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;  //send a stop
+        current_command_type = CMD_TYPE_READ_ASYNC; //Set the state to read_async so we'll react properly when the slave sends us data
+      }
+    break;
+	case CMD_TYPE_READ_ASYNC: //We've initiated a read command
 		if(op_buffer_index < op_buffer_len) // We're expecting more data to come in
 		{
 			op_buffer[op_buffer_index++] =TWI_MASTER.MASTER.DATA; //Put the data in the buffer
@@ -219,7 +236,10 @@ ISR(TWIE_TWIM_vect)
 			{
 				TWI_MASTER.MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_STOP_gc;
 				//We could totes tell someone that the transfer status went well here
-				//I.E. by using a semaphore
+				if(current_op_callback)
+        {
+          current_op_callback(); //If we had a function call queued up, let's do it now
+        }
 			}
 		}
 		else //Either we weren't expecting data, or we got too much data
@@ -238,7 +258,10 @@ ISR(TWIE_TWIM_vect)
 		{
 			TWI_MASTER.MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
 			//We could totes tell someone that the transfer went well here
-			//I.E. by using a semaphore
+			if(current_op_callback)
+			{
+  			current_op_callback(); //If we had a function call queued up, let's do it now
+			}
 		}
 		break;
 	default: //We should never get here

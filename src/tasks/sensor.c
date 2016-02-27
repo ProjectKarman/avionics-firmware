@@ -82,10 +82,10 @@ static void sensor_task_loop() {
 	  case SENSOR_ENTRY_400Hz:
 		 ms5607_02ba_convert_d1(OSR_4096);
 		 vTaskDelay(9);
-		 ms5607_02ba_read_adc(d1);
+		 ms5607_02ba_read_adc(&d1);
 		ms5607_02ba_convert_d2(OSR_4096);
 		vTaskDelay(9);
-		ms5607_02ba_read_adc(d2);
+		ms5607_02ba_read_adc(&d2);
 		temp = ms5607_02ba_calculate_temp(d2);
 
 		press = ms5607_02ba_calculate_press(d1, d2);
