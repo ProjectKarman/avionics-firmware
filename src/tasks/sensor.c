@@ -68,7 +68,11 @@ static void sensor_task_loop() {
   
   sensor_initialize();
   startup_timer();
-  
+  uint8_t retval = 0;
+  rocket_press_t press;
+  rocket_temp_t temp;
+  uint32_t d1 = 0;
+  uint32_t d2 = 0;
   for(;;) {
     xQueueReceive(sensor_queue, &timer_update, portMAX_DELAY);
 	  
@@ -76,6 +80,15 @@ static void sensor_task_loop() {
       case SENSOR_ENTRY_800Hz:
         break;
 	  case SENSOR_ENTRY_400Hz:
+		 ms5607_02ba_convert_d1(OSR_4096);
+		 vTaskDelay(9);
+		 ms5607_02ba_read_adc(d1);
+		ms5607_02ba_convert_d2(OSR_4096);
+		vTaskDelay(9);
+		ms5607_02ba_read_adc(d2);
+		temp = ms5607_02ba_calculate_temp(d2);
+
+		press = ms5607_02ba_calculate_press(d1, d2);
 	    break;	
       case SENSOR_ENTRY_100Hz:
         break;

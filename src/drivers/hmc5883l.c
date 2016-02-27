@@ -131,7 +131,7 @@ void hmc5883l_read_data_single (hmc5883l_rawdata_t* raw_data_ptr)
 	//And also grab the semaphore here? we need to do like three things in this function
 	write_command_async(HMC5883L_BUFFER_SIZE, NULL); //tell slave we want to read 6 bytes
 	//We need to make sure we've sent this before we try to read
-	read_command_async(HMC5883L_BUFFER_SIZE, NULL) //Read six bytes
+	read_command_async(HMC5883L_BUFFER_SIZE, NULL); //Read six bytes
 
 	//Store our data in our variable
 	raw_data_ptr->x_magnitude = (op_buffer[0] << 8) | op_buffer[1];

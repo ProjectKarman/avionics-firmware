@@ -308,7 +308,7 @@ static inline uint16_t convert_buffer_16(uint8_t *buffer) {
   return ((uint16_t)buffer[0] << 8*1) | ((uint32_t)buffer[1] << 8*0);
 }
 
-/* Interrupts */
+/*** Interrupts
 ISR(TWIE_TWIM_vect) {
   if(op_buffer_index < op_buffer_len) {
     switch(current_command_type) {
@@ -335,9 +335,9 @@ ISR(TWIE_TWIM_vect) {
           current_op_callback();
         }
       case CMD_TYPE_READ_ASYNC: \
-        /* In this case the only time we are reading async is when we are getting
-         * ADC values.
-         */
+        //* In this case the only time we are reading async is when we are getting
+        // * ADC values.
+         
         xSemaphoreGiveFromISR(command_running_semaphore, NULL);
         const uint32_t data = convert_buffer_24(op_buffer);
         xQueueSendToBackFromISR(aysnc_data_queue, &data, NULL);
@@ -347,3 +347,4 @@ ISR(TWIE_TWIM_vect) {
     }
   }
 }
+***/
