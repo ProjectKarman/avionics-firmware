@@ -243,6 +243,7 @@ static void send_command_async(uint8_t cmd, ms5607_02ba_callback_t callback) {
   op_buffer_len = 1;
   current_command_type = CMD_TYPE_WRITE_ASYNC;
   current_op_callback = callback;
+  
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1;
 }
 
@@ -259,6 +260,7 @@ static void get_data_async(uint8_t read_len, ms5607_02ba_callback_t callback) {
   op_buffer_index = 0;
   op_buffer_len = read_len;
   current_command_type = CMD_TYPE_READ_ASYNC;
+  TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc;
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1 | 0x1;
 }
 
@@ -310,6 +312,7 @@ static inline uint16_t convert_buffer_16(uint8_t *buffer) {
 
 /* Interrupts */
 ISR(TWIE_TWIM_vect) {
+  TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc; //Set master in read/write mode
   if(op_buffer_index < op_buffer_len) {
     switch(current_command_type) {
       case CMD_TYPE_WRITE: \
