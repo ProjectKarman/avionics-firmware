@@ -8,6 +8,9 @@
 
 #ifndef HMC5883L_H_
 #define HMC5883L_H_
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
 
 //Min and max values stored in data registers
 #define HMC5883L_OUTPUT_MIN		 0xF800
@@ -27,7 +30,7 @@ enum hmc5883l_sensor_mode_t{
 enum hmc5883l_reg_t {
 	HMC5883L_CRA,		//Control register A
 	HMC5883L_CRB,		//Control register B
-	HMC5883L_MODE,		
+	HMC5883L_MODE,
 	HMC5883L_XMSB,
 	HMC5883L_XLSB,
 	HMC5883L_ZMSB,
@@ -42,10 +45,10 @@ enum hmc5883l_reg_t {
 
 
 //Data is base 16
-typedef struct {
-	int16_t x_magnitude;
-	int16_t y_magnitude;
-	int16_t z_magnitude;
+typedef struct hmc5883l_rawdata{
+	uint16_t x_magnitude;
+	uint16_t y_magnitude;
+	uint16_t z_magnitude;
 } hmc5883l_rawdata_t;
 
 //Angles are base 10
@@ -55,18 +58,19 @@ typedef struct {
 	int roll;
 } hmc5883l_angle_t;
 
+//Function callback type
+typedef void (*hmc5883l_callback_t)(void);
+
 /* Initialize TWI (I2C) interface and prepare OS level structures */
 void hmc5883l_init();
 
 /*Read raw data from magnetometer
-	PRECONDITION: measurement mode has been set to single
 	Sends I2C messages to module to read starting at register 3 (XMSB)
 	Stores the result in a rawdata_t struct passed as a parameter
 */
-void hmc5883l_read_data_single (hmc5883l_rawdata_t *rawdata_ptr);
+void hmc5883l_read_data_single (hmc5883l_rawdata_t* raw_data_ptr);
 
 /*Read raw data from magnetometer
-	PRECONDITION: measurement mode has been set to continuous
 	Sends I2C messages to module to read starting at register 3 (XMSB)
 	Stores the result in a rawdata_t struct passed as a parameter
 */
