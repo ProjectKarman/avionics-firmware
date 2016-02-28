@@ -14,6 +14,7 @@
 #include "queue.h"
 
 #include "ms5607_02ba.h"
+#include "hmc5883l.h"
 // #include "fxls8471qr1.h"
 // #include "l3g4200d.h"
 #include "nrf24l01p.h"
@@ -34,7 +35,7 @@
 enum sensor_queue_state_type {
 	SENSOR_ENTRY_100Hz,
 	SENSOR_ENTRY_400Hz,
-	SENSOR_ENTRY_800Hz
+	SENSOR_ENTRY_800Hz,
 };
 
 typedef struct {
@@ -71,13 +72,15 @@ static void sensor_task_loop() {
   TaskHandle_t sensor_task_handle;
   sensor_timer_t timer_update;
   static uint8_t temp_debug_variable_breakpoint = 0;
-  
+  static hmc5883l_rawdata_t magnetometer_data; 
+
   memset(&current_sensor_readings, 0, sizeof(sensors_message_t));
   
   sensor_initialize();
   startup_timer();
-  ms5607_02ba_reset();
-  ms5607_02ba_load_prom();
+  //ms5607_02ba_reset();
+  //ms5607_02ba_load_prom();
+  hmc5883l_init();
   
   temp_debug_variable_breakpoint = 10;
   
@@ -93,7 +96,8 @@ static void sensor_task_loop() {
 		temp_debug_variable_breakpoint += 2;
 	    break;	
       case SENSOR_ENTRY_100Hz:
-		temp_debug_variable_breakpoint += 3;
+		    temp_debug_variable_breakpoint += 3;
+        hmc5883l_read_data_single(&magnetometer_data);
         break;
     }
 	// send_to_tranceiver();
@@ -103,7 +107,7 @@ static void sensor_task_loop() {
 
 static void sensor_initialize() {
   ms5607_02ba_init();
-  
+  hmc5883l_init();  
   // fxls8471qr1_init(void);
   // l3g4200d_init();
   
@@ -185,9 +189,8 @@ static void protocol_timer_overflow_handler() {
 	
 	if (hertz_state == 0) {
 		add_priority_event(SENSOR_ENTRY_100Hz, NULL);
-		add_priority_event(SENSOR_ENTRY_400Hz, NULL);
 	}
-	else if ((hertz_state & 1) == 0) {
+	else if (!(hertz_state & 1)) {
 		add_priority_event(SENSOR_ENTRY_400Hz, NULL);
 	}
 	add_priority_event(SENSOR_ENTRY_800Hz, NULL);

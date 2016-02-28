@@ -23,6 +23,7 @@
 #define HMC5883L_CRB_DEFAULT 0x20	//First three bits determine sensor gain
 									//Value of 001 is resolution of 0.92mG / count
 #define HMC5883L_BUFFER_SIZE 6
+#define HMC5883l_QUEUE_SIZE 24
 
 #define HMC5883L_ADDRESS_BASE 0x7A
 //#define HMC5883L_WRITE_ADDRESS 0x3C //ADDRESS_BASE << 1
@@ -60,6 +61,8 @@ static uint8_t op_buffer_len;
 volatile static uint8_t op_buffer_index;
 static hmc5883l_callback_t current_op_callback;
 static Status_bool_t sent_req_bytes;
+static QueueHandle_t hmc5883l_data_queue;
+static SemaphoreHandle_t data_queue_semaphore;
 
 //local functions
 static void write_command_async(uint16_t cmd, hmc5883l_callback_t callback);
@@ -81,8 +84,13 @@ void hmc5883l_init(void){
 	TWI_MASTER.MASTER.CTRLB |= TWI_MASTER_QCEN_bm | TWI_MASTER_SMEN_bm;
 	TWI_MASTER.MASTER.STATUS |= TWI_MASTER_BUSSTATE_IDLE_gc;
 
-
 	//Set up task level structures
+  hmc5883l_data_queue = xQueueCreate(HMC5883l_QUEUE_SIZE, sizeof(uint8_t));
+  data_queue_semaphore = xSemaphoreCreateMutex();
+  if(data_queue_semaphore)
+  {
+    xSemaphoreGive(data_queue_semaphore);
+  }
 
 	//Set options for configuration registers
 	write_command_async((HMC5883L_CRA << 8) & HMC5883L_CRA_DEFAULT, lambda(void, (void),{
@@ -127,21 +135,35 @@ void read_command_async(uint8_t read_len, hmc5883l_callback_t callback) {
 */
 void hmc5883l_read_data_single (hmc5883l_rawdata_t* raw_data_ptr)
 {
-	//Should totes grab a "command running" semaphore here?
+  static Status_bool_t data_recieved = 0; //Did we get data last time we called this function?
+  
+  //Store our data in our variable
+  int i = 0;
+  if(data_recieved != 0) //We didn't get data the last time we called the function. Solution to ensuring data is present before 
+  {
+    if(uxQueueMessagesWaiting(hmc5883l_data_queue) < 6) // we don't have enough stuff in our queue
+    {
+       return;
+    }
+    static uint8_t data_buf[HMC5883L_BUFFER_SIZE];
+    for(i = 0; i < HMC5883L_BUFFER_SIZE; i++){
+      xQueueReceive(hmc5883l_data_queue, (data_buf + i), portMAX_DELAY);
+    }
+    raw_data_ptr->x_magnitude = (data_buf[0] << 8) | data_buf[1];
+    raw_data_ptr->y_magnitude = (data_buf[2] << 8) | data_buf[3];
+    raw_data_ptr->z_magnitude = (data_buf[4] << 8) | data_buf[5];
+
+    //We should verify this data using the DATA_MAX, DATA_MIN, and DATA_ERROR #defines
+  }
+
+
+	//Should grab a "command running" semaphore here?
 	write_command_async((HMC5883L_MODE << 8) & HMC5883L_MODE_SINGLE, lambda(void, (void), {
     read_command_async(HMC5883L_BUFFER_SIZE, NULL);}));     //Send "Single measurement mode" message, then Read six bytes
 
-
-  //Definitely need to check to make sure our data transfer is complete here
-  //while loop based on a volatile variable? semaphore status? check TWI_MASTER.MASTER.STATUS?
-  //We could use a data queue and have the ISR put stuff in it?
+  data_recieved = 1; //Next time we'll have data, I swear
   
-	//Store our data in our variable
-	raw_data_ptr->x_magnitude = (op_buffer[0] << 8) | op_buffer[1];
-	raw_data_ptr->y_magnitude = (op_buffer[2] << 8) | op_buffer[3];
-	raw_data_ptr->z_magnitude = (op_buffer[4] << 8) | op_buffer[5];
-
-	//We should verify this data using the DATA_MAX, DATA_MIN, and DATA_ERROR #defines
+	
 }
 
 /**TWI Master interrupt service routine
@@ -226,7 +248,8 @@ ISR(TWIE_TWIM_vect)
 	case CMD_TYPE_READ_ASYNC: //We've initiated a read command
 		if(op_buffer_index < op_buffer_len) // We're expecting more data to come in
 		{
-			op_buffer[op_buffer_index++] =TWI_MASTER.MASTER.DATA; //Put the data in the buffer
+			op_buffer[op_buffer_index] =TWI_MASTER.MASTER.DATA; //Put the data in the buffer
+      xQueueSendToBackFromISR(hmc5883l_data_queue, &op_buffer[op_buffer_index++], NULL); //add data to data queue
 
 			if(op_buffer_index < op_buffer_len) // There's still more, so send an ACK and read again
 			{
