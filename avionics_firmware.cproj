@@ -148,7 +148,7 @@
         <InterfaceName>PDI</InterfaceName>
       </ToolOptions>
       <ToolType>com.atmel.avrdbg.tool.atmelice</ToolType>
-      <ToolNumber>J41800026976</ToolNumber>
+      <ToolNumber>J41800022744</ToolNumber>
       <ToolName>Atmel-ICE</ToolName>
     </com_atmel_avrdbg_tool_atmelice>
     <PercepioTrace>
@@ -217,7 +217,7 @@
       <ToolName xmlns="">Simulator</ToolName>
     </com_atmel_avrdbg_tool_simulator>
     <ExternalProgrammingToolCommand />
-    <avrtoolserialnumber>J41800026976</avrtoolserialnumber>
+    <avrtoolserialnumber>J41800022744</avrtoolserialnumber>
     <avrdeviceexpectedsignature>0x1E974C</avrdeviceexpectedsignature>
     <avrtoolinterfaceclock>4000000</avrtoolinterfaceclock>
   </PropertyGroup>
