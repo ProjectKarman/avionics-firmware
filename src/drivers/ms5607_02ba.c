@@ -118,7 +118,9 @@ void ms5607_02ba_init(void) {
 
 uint8_t ms5607_02ba_reset(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    send_command(CMD_RESET);
+    send_command_async(CMD_RESET, lambda(void, (void), {
+	    get_data_async(2, final_op_callback);
+    }));
     xSemaphoreGive(command_running_semaphore);
     vTaskDelay(DEVICE_RESET_DELAY);
 
@@ -213,8 +215,9 @@ uint8_t ms5607_02ba_load_prom(void) {
     uint8_t data_buffer[2];
     
     for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++) {
-      send_command(CMD_READ_REG(prom_addr));
-      get_data(data_buffer, 2);
+      send_command_async(CMD_READ_REG(prom_addr), lambda(void, (void), {
+	      get_data_async(4, final_op_callback);
+      }));
       
       *((uint16_t *)&prom_data + prom_addr) = convert_buffer_16(data_buffer);
     }
@@ -312,6 +315,12 @@ static inline uint16_t convert_buffer_16(uint8_t *buffer) {
 
 /* Interrupts */
 ISR(TWIE_TWIM_vect) {
+  TickType_t callback_delay;
+  TickType_t xLastWakeTime;
+  
+  xLastWakeTime = xTaskGetTickCount();
+  callback_delay = 0;
+  
   TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc; //Set master in read/write mode
   if(op_buffer_index < op_buffer_len) {
     switch(current_command_type) {
@@ -349,4 +358,6 @@ ISR(TWIE_TWIM_vect) {
         }
     }
   }
+  
+  vTaskDelayUntil(xLastWakeTime, callback_delay);
 }
