@@ -23,10 +23,6 @@
 /* Constant Variables */
 #define SENSOR_TIMER TCE2
 
-#define SESNORCOLLECTION_100Hz TCC2
-#define SESNORCOLLECTION_400Hz TCD2
-#define SESNORCOLLECTION_800Hz TCE2
-
 #define EVENT_DATA_SIZE_MAX 25
 #define EVENT_QUEUE_DEPTH 8
 #define BASE_HERTZ_MODIFIER 40000
@@ -49,9 +45,6 @@ static void sensor_task_loop();
 static void sensor_initialize();
 static void startup_timer();
 static void send_to_tranceiver();
-static void protocol_timer1_overflow_handler();
-static void protocol_timer2_overflow_handler();
-static void protocol_timer3_overflow_handler();
 
 static void protocol_timer_overflow_handler();
 
@@ -83,7 +76,7 @@ static void sensor_task_loop() {
   
   
   for(;;) {
-    xQueueReceive(sensor_queue, &timer_update, portMAX_DELAY);
+    xQueueReceive(sensor_queue, &timer_update, 0);
 	temp_debug_variable_breakpoint += 1; 
     switch(timer_update.type) {
       case SENSOR_ENTRY_800Hz:
@@ -95,6 +88,8 @@ static void sensor_task_loop() {
       case SENSOR_ENTRY_100Hz:
 		temp_debug_variable_breakpoint += 3;
         break;
+		
+	  twi_process_queue;
     }
 	// send_to_tranceiver();
 	temp_debug_variable_breakpoint += 1;
@@ -109,31 +104,6 @@ static void sensor_initialize() {
   
   // nrf24l01p_init();
 }
-
-/*
-static void startup_timer()  {
-  // Configure timer to generate frame phase interrupts
-  tc_enable(&SESNORCOLLECTION_100Hz);
-  tc_enable(&SESNORCOLLECTION_400Hz);
-  tc_enable(&SESNORCOLLECTION_800Hz);
-  
-  tc_set_wgm(&SESNORCOLLECTION_100Hz, TC_WG_NORMAL);
-  tc_set_wgm(&SESNORCOLLECTION_400Hz, TC_WG_NORMAL);
-  tc_set_wgm(&SESNORCOLLECTION_800Hz, TC_WG_NORMAL);
-  
-  tc_write_period(&SESNORCOLLECTION_100Hz, F_CPU / (8 * BASE_HERTZ_MODIFIER));
-  tc_write_period(&SESNORCOLLECTION_400Hz, F_CPU / (2 * BASE_HERTZ_MODIFIER));
-  tc_write_period(&SESNORCOLLECTION_800Hz, F_CPU / (BASE_HERTZ_MODIFIER));
-  
-  tc_set_overflow_interrupt_callback(&SESNORCOLLECTION_100Hz, protocol_timer1_overflow_handler);
-  tc_set_overflow_interrupt_callback(&SESNORCOLLECTION_400Hz, protocol_timer2_overflow_handler);
-  tc_set_overflow_interrupt_callback(&SESNORCOLLECTION_800Hz, protocol_timer3_overflow_handler);
-  
-  tc_set_overflow_interrupt_level(&SESNORCOLLECTION_100Hz, TC_INT_LVL_MED);
-  tc_set_overflow_interrupt_level(&SESNORCOLLECTION_400Hz, TC_INT_LVL_MED);
-  tc_set_overflow_interrupt_level(&SESNORCOLLECTION_800Hz, TC_INT_LVL_MED);
-}
-*/
 
 static void startup_timer()
 {
@@ -166,18 +136,6 @@ static void send_to_tranceiver() {
 	 
   // transceiver_send_message/transceiver_message_create
   transceiver_send_message(created_message, 0);
-}
-
-static void protocol_timer1_overflow_handler() {
-	add_priority_event(SENSOR_ENTRY_100Hz, NULL);
-}
-
-static void protocol_timer2_overflow_handler() {
-	add_priority_event(SENSOR_ENTRY_400Hz, NULL);
-}
-
-static void protocol_timer3_overflow_handler() {
-	add_priority_event(SENSOR_ENTRY_800Hz, NULL);
 }
 
 static void protocol_timer_overflow_handler() {

@@ -50,13 +50,6 @@
 #define SEMAPHORE_BLOCK_TIME 0
 #define ASYNC_QUEUE_DEPTH 3
 
-#define lambda(l_ret_type, l_arguments, l_body)         \
-({                                                    \
-  l_ret_type l_anonymous_functions_name l_arguments   \
-  l_body                                            \
-  &l_anonymous_functions_name;                        \
-})
-
 /* Private Types */
 typedef struct {
   uint16_t manufacturer;
@@ -79,8 +72,7 @@ enum command_type {
 /* Private Function Prototypes */
 static void send_command(uint8_t cmd);
 static void send_command_async(uint8_t cmd, ms5607_02ba_callback_t callback);
-static void get_data(uint8_t *buffer, uint8_t buffer_len);
-static void get_data_async(uint8_t read_len, ms5607_02ba_callback_t callback);
+static void get_data();
 static uint32_t convert_buffer_24(uint8_t *buffer);
 static uint16_t convert_buffer_16(uint8_t *buffer);
 
@@ -95,6 +87,7 @@ static QueueHandle_t aysnc_data_queue;
 static ms5607_02ba_callback_t current_op_callback;
 static ms5607_02ba_callback_t final_op_callback;
 static enum command_type current_command_type;
+static uint32_t twi_result;
 
 void ms5607_02ba_init(void) {
   TWI_MASTER_PORT.PIN0CTRL |= PORT_OPC_WIREDANDPULL_gc;
@@ -104,6 +97,7 @@ void ms5607_02ba_init(void) {
   
   TWI_MASTER.MASTER.BAUD = TWI_BAUD_REG;
   TWI_MASTER.MASTER.CTRLA |= TWI_MASTER_ENABLE_bm | TWI_MASTER_WIEN_bm | TWI_MASTER_INTLVL_MED_gc;
+  
   TWI_MASTER.MASTER.CTRLB |= TWI_MASTER_QCEN_bm | TWI_MASTER_SMEN_bm;
   TWI_MASTER.MASTER.STATUS |= TWI_MASTER_BUSSTATE_IDLE_gc;
   
@@ -118,9 +112,8 @@ void ms5607_02ba_init(void) {
 
 uint8_t ms5607_02ba_reset(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    send_command_async(CMD_RESET, lambda(void, (void), {
-	    get_data_async(2, final_op_callback);
-    }));
+    op_buffer_len = 2;
+	send_command_async(CMD_RESET, get_data);
     xSemaphoreGive(command_running_semaphore);
     vTaskDelay(DEVICE_RESET_DELAY);
 
@@ -199,9 +192,8 @@ uint8_t ms5607_02ba_read_adc(uint32_t *adc_value) {
 uint8_t ms5607_02ba_read_async(ms5607_02ba_callback_t callback) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
     final_op_callback = callback;
-    send_command_async(CMD_ADC_READ, lambda(void, (void), {
-      get_data_async(2, final_op_callback);
-    }));
+	op_buffer_len = 2;
+    send_command_async(CMD_ADC_READ, get_data);
 
     return 0;
   }
@@ -212,14 +204,11 @@ uint8_t ms5607_02ba_read_async(ms5607_02ba_callback_t callback) {
 
 uint8_t ms5607_02ba_load_prom(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-    uint8_t data_buffer[2];
-    
-    for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++) {
-      send_command_async(CMD_READ_REG(prom_addr), lambda(void, (void), {
-	      get_data_async(4, final_op_callback);
-      }));
-      
-      *((uint16_t *)&prom_data + prom_addr) = convert_buffer_16(data_buffer);
+	  
+	op_buffer_len = 2;
+    for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++) {	
+      send_command_async(CMD_READ_REG(prom_addr), get_data);
+	  *((uint16_t *)&prom_data + prom_addr) = convert_buffer_16(op_buffer);
     }
     xSemaphoreGive(command_running_semaphore);
 
@@ -241,7 +230,7 @@ static void send_command(uint8_t cmd)
 }
 
 static void send_command_async(uint8_t cmd, ms5607_02ba_callback_t callback) {
-  *op_buffer = cmd;
+  *op_buffer= cmd;
   op_buffer_index = 0;
   op_buffer_len = 1;
   current_command_type = CMD_TYPE_WRITE_ASYNC;
@@ -250,21 +239,14 @@ static void send_command_async(uint8_t cmd, ms5607_02ba_callback_t callback) {
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1;
 }
 
-static void get_data(uint8_t *buffer, uint8_t buffer_len) {
+static void get_data() {
   op_buffer_index = 0;
-  op_buffer_len = buffer_len;
+  op_buffer_len = 3;
   current_command_type = CMD_TYPE_READ;
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1 | 0x1;
   xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
-  memcpy(op_buffer, buffer, buffer_len);
-}
-
-static void get_data_async(uint8_t read_len, ms5607_02ba_callback_t callback) {
-  op_buffer_index = 0;
-  op_buffer_len = read_len;
-  current_command_type = CMD_TYPE_READ_ASYNC;
-  TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc;
-  TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1 | 0x1;
+  // memcpy(op_buffer, buffer, buffer_len);
+  xQueueReceive(aysnc_data_queue, &twi_result, portMAX_DELAY);
 }
 
 rocket_temp_t ms5607_02ba_calculate_temp(uint32_t d2)	{
@@ -315,14 +297,8 @@ static inline uint16_t convert_buffer_16(uint8_t *buffer) {
 
 /* Interrupts */
 ISR(TWIE_TWIM_vect) {
-  TickType_t callback_delay;
-  TickType_t xLastWakeTime;
-  
-  xLastWakeTime = xTaskGetTickCount();
-  callback_delay = 0;
-  
-  TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc; //Set master in read/write mode
   if(op_buffer_index < op_buffer_len) {
+	TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc; //Set master in read/write mode
     switch(current_command_type) {
       case CMD_TYPE_WRITE: \
       case CMD_TYPE_WRITE_ASYNC: \
@@ -358,6 +334,4 @@ ISR(TWIE_TWIM_vect) {
         }
     }
   }
-  
-  vTaskDelayUntil(xLastWakeTime, callback_delay);
 }
