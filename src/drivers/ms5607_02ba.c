@@ -16,7 +16,7 @@
 #include "queue.h"
 #include "semphr.h"
 #include "task.h"
-#include "twi_prototypes.h"
+#include "twi_interface.h"
 
 // Device Params
 #define DEVICE_ADDRESS 0x77
