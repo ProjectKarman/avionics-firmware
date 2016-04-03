@@ -11,4 +11,6 @@
 
 void sensor_start_task(void);
 
+typedef void (*twi_interface_initialize_t)(void);
+
 #endif /* SENSOR_H_ */
