@@ -21,7 +21,7 @@
 #define TWI_FREQ        400000
 #define TWI_BAUD_REG 35 // ((F_SYS / (2 * TWI_FREQ)) - 5)
 
-#define TWI_TODO_QUEUE_LENGTH
+#define TWI_TODO_QUEUE_LENGTH 10
 
 static twi_interface_t twie;
 
@@ -39,12 +39,39 @@ uint8_t twi_init()
     // ===========================================================
 
     // Set up higher level objects
-    twie.twi_todo_queue = xQueueCreate(TWI_TODO_QUEUE_LENGTH, sizeof(uint32_t));
+    twie.twi_todo_queue = xQueueCreate(TWI_TODO_QUEUE_LENGTH, sizeof(twi_task_t));
 }
 
 uint8_t twi_add_task_to_queue(twi_task_t* task)
 {
 	xQueueSendToFront(twie.twi_todo_queue, task, NULL);
+	return 1;
+}
+
+uint8_t twi_process_queue() {
+	twi_task_t task;
+	
+	if (twie.twi_bus_locked == 1) {
+		return 3;
+	}
+	
+	xQueuePeek(twie.twi_todo_queue, &task, 0);
+	
+	twie.twi_device_addr = task.device_addr;
+		
+	if (task.mode == TWI_READ_MODE) {
+		twie.twi_read_index = 0;
+	}
+	else if (task.mode == TWI_WRITE_MODE) {
+		twie.twi_write_data_index = 0;	
+	}
+	else if (task.mode == TWI_IDLE_MODE) {
+		return 2;
+	}
+	else {
+		return 0;
+	}
+	return 1;
 }
 
 

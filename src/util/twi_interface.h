@@ -28,13 +28,10 @@ typedef struct twi_interface {
 	QueueHandle_t twi_todo_queue;
 	
 	// write data members
-	uint32_t twi_write_data;
-	uint8_t twi_write_data_length;
 	uint8_t twi_write_data_index;
 	
 	// read data members
 	uint32_t twi_read_data;
-	uint8_t twi_read_length;
 	uint8_t twi_read_index;
 	
 	// boolean is i2c bus in use?
@@ -54,7 +51,7 @@ typedef struct twi_task {
     QueueHandle_t* return_queue;
     uint8_t device_addr;
     twi_todo_item_mode_t mode;
-    uint8_t* write_data;
+    uint8_t write_data;
     uint8_t length;
 } twi_task_t;
 
