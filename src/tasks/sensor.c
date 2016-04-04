@@ -47,12 +47,12 @@ extern ms5607_02ba_dev_t ms5607_02ba;
 static QueueHandle_t sensor_queue;
 
 /* Private Prototypes */
-static void sensor_task_loop();
-static void sensor_initialize();
-static void startup_timer();
-static void send_to_tranceiver();
+static void sensor_task_loop(void * pvParameters);
+static void sensor_initialize(void);
+static void startup_timer(void);
+// static void send_to_tranceiver(void);
 
-static void protocol_timer_overflow_handler();
+static void protocol_timer_overflow_handler(void);
 
 static inline void add_priority_event(enum sensor_queue_state_type event_type, void *data);
 
@@ -68,8 +68,8 @@ void sensor_start_task(void) {
 }
 
 /* Private Functions */
-static void sensor_task_loop() {
-  TaskHandle_t sensor_task_handle;
+static void sensor_task_loop(void * pvParameters)
+{
   sensor_timer_t timer_update;
   
   memset(&current_sensor_readings, 0, sizeof(sensors_message_t));
@@ -77,24 +77,37 @@ static void sensor_task_loop() {
   // TODO: Originally Bryce was trying to 
   // twi_interface_t *twie_interface;
   // twie_interface = &twie;
-  
+
+	// Setup hardware interfaces
+	// ============================
+	twi_init();
+	// ============================
+
+
+
+	//Setup sensor drivers
+	// ============================
   sensor_initialize();
   startup_timer();
-  ms5607_02ba_reset();
+  ms5607_02ba_reset(); // TODO: move these guys to the sensor_initialize function
   ms5607_02ba_load_prom();
+	// ============================
 
   for(;;) {
-    xQueueReceive(sensor_queue, &timer_update, NULL);
+	  // Wait until a timed event occurs. This is when other tasks get to execute
+    xQueueReceive(sensor_queue, &timer_update, portMAX_DELAY);
 
+	  // Operate on sensors based on what timed event occurred
     switch(timer_update.type) {
 	  case SENSOR_CHECK_TWI_3200Hz:
+		  // If the event was a 3.2khz tick, update the get data countdowns
 		  if (get_ms5607_data_countdown >= 0)
 		  {
 			  get_ms5607_data_countdown -= 1;
 			  if(get_ms5607_data_countdown == 0)
 			  {
-				  xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.prepareADC, NULL);
-				  xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.getADC, NULL);
+				  twi_add_task_to_queue(&ms5607_02ba.prepareADC);
+				  twi_add_task_to_queue(&ms5607_02ba.getADC);
 			  }
 		  }
 			// Add more countdowns here
@@ -102,29 +115,49 @@ static void sensor_task_loop() {
       case SENSOR_ENTRY_800Hz:
         break;
 	  case SENSOR_ENTRY_400Hz:
-	  	xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.prepareD2, NULL);
-		get_ms5607_data_countdown = 26; // this might not work
+	  	twi_add_task_to_queue(&ms5607_02ba.prepareD2);
+	  	get_ms5607_data_countdown = 26; // this might not work
 	    break;	
       case SENSOR_ENTRY_100Hz:
         break;
+	  case SENSOR_ENTRY_NONE:
+	    break;
     }
     timer_update.type = SENSOR_ENTRY_NONE;
+	  // If there is new data from any of the sensors, send it to the transceiver
     if (ms5607_02ba_fetch_queue_data())
 	{
 		// send_to_tranceiver();
 	}
+	  // Process the twi task queue and kick off any queue tasks
 	twi_process_queue();
   }
-}  
+}
 
 static void sensor_initialize() {
-  // ms5607_02ba_init();
-  
-  // fxls8471qr1_init(void);
-  // l3g4200d_init();
-  
-  // nrf24l01p_init();
+	// ms5607_02ba_init();
+
+	// fxls8471qr1_init(void);
+	// l3g4200d_init();
+
+	// nrf24l01p_init();
 }
+
+// NOTE: send_to_transceiver not yet used
+// ======================
+//static void send_to_tranceiver() {
+//	transceiver_message_t created_message;
+//
+//	// format message from struct based on message
+//	created_message = transceiver_message_create(TRANSCEIVER_MSG_TYPE_GENERAL, &current_sensor_readings);
+//
+//	// transceiver_send_message/transceiver_message_create
+//	transceiver_send_message(created_message, 0);
+//}
+
+// ================================================================================================
+// ======================== Sensor loop timer handling ============================================
+// ================================================================================================
 
 static void startup_timer()
 {
@@ -136,16 +169,6 @@ static void startup_timer()
 	tc_set_overflow_interrupt_level(&SENSOR_TIMER, TC_INT_LVL_LO);
 	
 	tc_write_clock_source(&SENSOR_TIMER, TC_CLKSEL_DIV1_gc);
-}
-
-static void send_to_tranceiver() {
-  transceiver_message_t created_message;
-	
-  // format message from struct based on message
-  created_message = transceiver_message_create(TRANSCEIVER_MSG_TYPE_GENERAL, &current_sensor_readings);
-	 
-  // transceiver_send_message/transceiver_message_create
-  transceiver_send_message(created_message, 0);
 }
 
 static void protocol_timer_overflow_handler() {
@@ -180,5 +203,9 @@ static inline void add_priority_event(enum sensor_queue_state_type event_type, v
 		.type = event_type
 	};
 	memcpy(event.data, data, EVENT_DATA_SIZE_MAX);
-	xQueueSendToFront(sensor_queue, &event, NULL);
+	xQueueSendToFront(sensor_queue, &event, portMAX_DELAY);
 };
+
+// ================================================================================================
+// ================================================================================================
+// ================================================================================================
