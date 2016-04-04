@@ -19,6 +19,7 @@
 #include "nrf24l01p.h"
 #include "message_types.h"
 #include "transceiver.h"
+#include "twi_interface.h"
 
 /* Constant Variables */
 #define SENSOR_TIMER TCE2
@@ -30,13 +31,18 @@
 enum sensor_queue_state_type {
 	SENSOR_ENTRY_100Hz,
 	SENSOR_ENTRY_400Hz,
-	SENSOR_ENTRY_800Hz
+	SENSOR_ENTRY_800Hz,
+	SENSOR_ENTRY_NONE,
+	SENSOR_CHECK_TWI_3200Hz
 };
 
 typedef struct {
 	enum sensor_queue_state_type type;
 	uint8_t data[EVENT_DATA_SIZE_MAX];
 } sensor_timer_t;
+
+extern twi_interface_t twie;
+extern ms5607_02ba_dev_t ms5607_02ba;
 
 static QueueHandle_t sensor_queue;
 
@@ -53,6 +59,8 @@ static inline void add_priority_event(enum sensor_queue_state_type event_type, v
 TaskHandle_t sensor_task_handle;
 static QueueHandle_t sensor_queue;
 sensors_message_t current_sensor_readings;
+
+int8_t get_ms5607_data_countdown = -1; // number of 3.2kHz ticks remaining
 
 void sensor_start_task(void) {
   xTaskCreate(sensor_task_loop, "sensor", 1024, NULL, 2, &sensor_task_handle);
@@ -74,25 +82,39 @@ static void sensor_task_loop() {
   
   temp_debug_variable_breakpoint = 10;
   
-  
+  twi_interface_t* twie_interface = twie;
+
   for(;;) {
-    xQueueReceive(sensor_queue, &timer_update, 0);
-	temp_debug_variable_breakpoint += 1; 
+    xQueueReceive(sensor_queue, &timer_update, NULL);
+
     switch(timer_update.type) {
+	  case SENSOR_CHECK_TWI_3200Hz:
+		  if (get_ms5607_data_countdown >= 0)
+		  {
+			  get_ms5607_data_countdown -= 1;
+			  if(get_ms5607_data_countdown == 0)
+			  {
+				  xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.prepareADC, NULL);
+				  xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.getADC, NULL);
+			  }
+		  }
+			// Add more countdowns here
+		break;
       case SENSOR_ENTRY_800Hz:
-		temp_debug_variable_breakpoint += 1;
         break;
 	  case SENSOR_ENTRY_400Hz:
-		temp_debug_variable_breakpoint += 2;
+	  	xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.prepareD2, NULL);
+		get_ms5607_data_countdown = 26; // this might not work
 	    break;	
       case SENSOR_ENTRY_100Hz:
-		temp_debug_variable_breakpoint += 3;
         break;
-		
-	  twi_process_queue;
     }
-	// send_to_tranceiver();
-	temp_debug_variable_breakpoint += 1;
+    timer_update.type = SENSOR_ENTRY_NONE;
+    if (ms5607_02ba_fetch_queue_data())
+	{
+		// send_to_tranceiver();
+	}
+	twi_process_queue();
   }
 }  
 
@@ -120,7 +142,7 @@ static void startup_timer()
 	
 	tc_enable(&SENSOR_TIMER);
 	tc_set_wgm(&SENSOR_TIMER, TC_WG_NORMAL);
-	tc_write_period(&SENSOR_TIMER, F_CPU / (8 * BASE_HERTZ_MODIFIER));
+	tc_write_period(&SENSOR_TIMER, F_CPU / (32 * BASE_HERTZ_MODIFIER));
 	
 	tc_set_overflow_interrupt_callback(&SENSOR_TIMER, protocol_timer_overflow_handler);
 	tc_set_overflow_interrupt_level(&SENSOR_TIMER, TC_INT_LVL_LO);
@@ -144,13 +166,19 @@ static void protocol_timer_overflow_handler() {
 	if (hertz_state == 0) {
 		add_priority_event(SENSOR_ENTRY_100Hz, NULL);
 		add_priority_event(SENSOR_ENTRY_400Hz, NULL);
+		add_priority_event(SENSOR_ENTRY_800Hz, NULL);
 	}
-	else if ((hertz_state & 1) == 0) {
+	else if ((hertz_state & 7) == 0) {
 		add_priority_event(SENSOR_ENTRY_400Hz, NULL);
 	}
-	add_priority_event(SENSOR_ENTRY_800Hz, NULL);
+	else if ((hertz_state & 3) == 0)
+	{
+		add_priority_event(SENSOR_ENTRY_800Hz, NULL);
+	}
+	add_priority_event(SENSOR_CHECK_TWI_3200Hz, NULL);
+
 	
-	if (hertz_state == 7)
+	if (hertz_state == 31)
 	{
 		hertz_state = 0;
 	}
