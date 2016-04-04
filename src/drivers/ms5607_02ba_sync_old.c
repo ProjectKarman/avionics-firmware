@@ -5,8 +5,6 @@
  *  Author: Timothy Rupprecht
  */ 
 
-#include "ms5607_02ba.h"
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>

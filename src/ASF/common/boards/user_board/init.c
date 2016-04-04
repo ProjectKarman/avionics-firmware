@@ -9,7 +9,7 @@
 #include <board.h>
 #include <conf_board.h>
 #include "nrf24l01p.h"
-#include "ms5607_02ba.h"
+#include "ms5607_02ba_dev.h"
 
 void board_init(void)
 {
@@ -22,5 +22,5 @@ void board_init(void)
   ioport_init();
   dma_enable();
   nrf24l01p_init();
-  ms5607_02ba_init();
+  // ms5607_02ba_init();
 }

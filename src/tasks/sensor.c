@@ -13,7 +13,7 @@
 #include "task.h"
 #include "queue.h"
 
-#include "ms5607_02ba.h"
+#include "ms5607_02ba_dev.h"
 // #include "fxls8471qr1.h"
 // #include "l3g4200d.h"
 #include "nrf24l01p.h"
@@ -33,24 +33,12 @@ enum sensor_queue_state_type {
 	SENSOR_ENTRY_800Hz
 };
 
-enum twi_todo_item_mode_t {
-	TWI_READ_MODE,
-	TWI_WRITE_MODE,
-	TWI_IDLE_MODE
-};
-
 typedef struct {
 	enum sensor_queue_state_type type;
 	uint8_t data[EVENT_DATA_SIZE_MAX];
 } sensor_timer_t;
 
-typedef struct {
-	enum twi_todo_item_mode_t mode;
-	uint8_t data[EVENT_DATA_SIZE_MAX];
-} twi_todo_list_t;
-
 static QueueHandle_t sensor_queue;
-static QueueHandle_t twi_process_queue;
 
 /* Private Prototypes */
 static void sensor_task_loop();
@@ -69,7 +57,6 @@ sensors_message_t current_sensor_readings;
 void sensor_start_task(void) {
   xTaskCreate(sensor_task_loop, "sensor", 1024, NULL, 2, &sensor_task_handle);
   sensor_queue = xQueueCreate(EVENT_QUEUE_DEPTH, sizeof(sensor_timer_t));
-  twi_process_queue = xQueueCreate(EVENT_QUEUE_DEPTH, sizeof(sensor_timer_t));
 }
 
 /* Private Functions */
@@ -110,7 +97,7 @@ static void sensor_task_loop() {
 }  
 
 static void sensor_initialize() {
-  ms5607_02ba_init();
+  // ms5607_02ba_init();
   
   // fxls8471qr1_init(void);
   // l3g4200d_init();
