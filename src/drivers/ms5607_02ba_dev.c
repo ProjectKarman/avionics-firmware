@@ -50,7 +50,7 @@ void ms5607_02ba_init(twi_interface_t* twi_obj) {
 	ms5607_02ba.resetDevice.return_queue = ms5607_02ba.ms5607_02ba_data_queue;
 	ms5607_02ba.resetDevice.device_addr = DEVICE_ADDRESS << 1;
 	ms5607_02ba.resetDevice.mode = TWI_WRITE_MODE;
-	ms5607_02ba.resetDevice.write_data = CMD_RESET;
+	ms5607_02ba.resetDevice.write_data[0] = CMD_RESET;
 	ms5607_02ba.resetDevice.length = 1;
 	
 	// This will need to change in ms5607_02ba_load_prom() to be specific to ms5607_02ba's
@@ -58,7 +58,7 @@ void ms5607_02ba_init(twi_interface_t* twi_obj) {
 	ms5607_02ba.preparePromReg.return_queue = ms5607_02ba.ms5607_02ba_data_queue;
 	ms5607_02ba.preparePromReg.device_addr = DEVICE_ADDRESS << 1;
 	ms5607_02ba.preparePromReg.mode = TWI_WRITE_MODE;
-	ms5607_02ba.preparePromReg.write_data = 0x00;
+	ms5607_02ba.preparePromReg.write_data[0] = 0x00;
 	ms5607_02ba.preparePromReg.length = 1;
 	
 	// This does not need to change in ms5607_02ba_load_prom() because it is not
@@ -66,7 +66,6 @@ void ms5607_02ba_init(twi_interface_t* twi_obj) {
 	ms5607_02ba.getPromReg.return_queue = ms5607_02ba.ms5607_02ba_data_queue;
 	ms5607_02ba.getPromReg.device_addr = DEVICE_ADDRESS << 1 | 0x1;
 	ms5607_02ba.getPromReg.mode = TWI_READ_MODE;
-	ms5607_02ba.getPromReg.write_data = 0x00;
 	ms5607_02ba.getPromReg.length = 2;
 	
 	// This will need to change in ms5607_02ba_convert_d*() to be specific to ms5607_02ba's
@@ -74,7 +73,7 @@ void ms5607_02ba_init(twi_interface_t* twi_obj) {
 	ms5607_02ba.prepareD1.return_queue = ms5607_02ba.ms5607_02ba_data_queue;
 	ms5607_02ba.prepareD1.device_addr = DEVICE_ADDRESS << 1;
 	ms5607_02ba.prepareD1.mode = TWI_WRITE_MODE;
-	ms5607_02ba.prepareD1.write_data = CMD_CONVERTD1(OSR_4096);
+	ms5607_02ba.prepareD1.write_data[0] = CMD_CONVERTD1(OSR_4096);
 	ms5607_02ba.prepareD1.length = 1;
 	
 	// This will need to change in ms5607_02ba_convert_d*() to be specific to ms5607_02ba's
@@ -82,7 +81,7 @@ void ms5607_02ba_init(twi_interface_t* twi_obj) {
 	ms5607_02ba.prepareD2.return_queue = ms5607_02ba.ms5607_02ba_data_queue;
 	ms5607_02ba.prepareD2.device_addr = DEVICE_ADDRESS << 1;
 	ms5607_02ba.prepareD2.mode = TWI_WRITE_MODE;
-	ms5607_02ba.prepareD2.write_data = CMD_CONVERTD2(OSR_4096);;
+	ms5607_02ba.prepareD2.write_data[0] = CMD_CONVERTD2(OSR_4096);;
 	ms5607_02ba.prepareD2.length = 1;
 		
 	// This won't need to change in ms5607_02ba_convert_d*() because it isn't specific to
@@ -90,7 +89,7 @@ void ms5607_02ba_init(twi_interface_t* twi_obj) {
 	ms5607_02ba.prepareADC.return_queue = ms5607_02ba.ms5607_02ba_data_queue;
 	ms5607_02ba.prepareADC.device_addr = DEVICE_ADDRESS << 1 | 0x1;
 	ms5607_02ba.prepareADC.mode = TWI_WRITE_MODE;
-	ms5607_02ba.prepareADC.write_data = CMD_ADC_READ;
+	ms5607_02ba.prepareADC.write_data[0] = CMD_ADC_READ;
 	ms5607_02ba.prepareADC.length = 1;
 	
 	// This won't need to change in ms5607_02ba_convert_d*() because it isn't specific to
@@ -98,7 +97,7 @@ void ms5607_02ba_init(twi_interface_t* twi_obj) {
 	ms5607_02ba.getADC.return_queue = ms5607_02ba.ms5607_02ba_data_queue;
 	ms5607_02ba.getADC.device_addr = DEVICE_ADDRESS << 1;
 	ms5607_02ba.getADC.mode = TWI_READ_MODE;
-	ms5607_02ba.getADC.write_data = 0x00;
+	ms5607_02ba.getADC.write_data[0] = 0x00;
 	ms5607_02ba.getADC.length = 3;
 }
 
@@ -108,7 +107,7 @@ uint8_t ms5607_02ba_reset(void) {
 
 uint8_t ms5607_02ba_load_prom(void) {
 	for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++)  {
-		ms5607_02ba.preparePromReg.write_data = CMD_READ_REG(prom_addr);
+		ms5607_02ba.preparePromReg.write_data[0] = CMD_READ_REG(prom_addr);
 		
 		twi_add_task_to_queue(&ms5607_02ba.preparePromReg);
 		twi_add_task_to_queue(&ms5607_02ba.getPromReg);
@@ -139,5 +138,9 @@ rocket_temp_t ms5607_02ba_calculate_temp(uint32_t d2) {
 }
 
 rocket_press_t ms5607_02ba_calculate_press(uint32_t d1, uint32_t d2) {
+	
+}
+
+uint8_t ms5607_02ba_fetch_queue_data(void) {
 	
 }

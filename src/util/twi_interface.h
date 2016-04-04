@@ -12,8 +12,8 @@
 #include "task.h"
 #include "twi_interface.h"
 
-#define MAX_SENSOR_DATA_WRITE_LENGTH 10;
-#define MAX_SENSOR_DATA_READ_LENGTH 10;
+#define MAX_SENSOR_DATA_WRITE_LENGTH 10
+#define MAX_SENSOR_DATA_READ_LENGTH 10
 
 typedef void (*twi_isr_callback_t)(void);
 

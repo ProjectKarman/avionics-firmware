@@ -126,7 +126,7 @@
         <board id="board.user_board.xmegaau" value="Add" config="" content-id="Atmel.ASF" />
       </framework-data>
     </AsfFrameworkConfig>
-    <avrtool>com.atmel.avrdbg.tool.atmelice</avrtool>
+    <avrtool>com.atmel.avrdbg.tool.simulator</avrtool>
     <avrtoolinterface>PDI</avrtoolinterface>
     <com_atmel_avrdbg_tool_ispmk2>
       <ToolOptions>
@@ -142,7 +142,7 @@
     <com_atmel_avrdbg_tool_atmelice>
       <ToolOptions>
         <InterfaceProperties>
-          <PdiClock>4000000</PdiClock>
+          <PdiClock>0</PdiClock>
           <JtagDbgClock>7500000</JtagDbgClock>
         </InterfaceProperties>
         <InterfaceName>PDI</InterfaceName>
@@ -217,9 +217,10 @@
       <ToolName xmlns="">Simulator</ToolName>
     </com_atmel_avrdbg_tool_simulator>
     <ExternalProgrammingToolCommand />
-    <avrtoolserialnumber>J41800022744</avrtoolserialnumber>
+    <avrtoolserialnumber>
+    </avrtoolserialnumber>
     <avrdeviceexpectedsignature>0x1E974C</avrdeviceexpectedsignature>
-    <avrtoolinterfaceclock>4000000</avrtoolinterfaceclock>
+    <avrtoolinterfaceclock>0</avrtoolinterfaceclock>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>
@@ -432,10 +433,10 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="src\drivers\ms5607_02ba.c">
+    <Compile Include="src\drivers\ms5607_02ba_dev.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="src\drivers\ms5607_02ba.h">
+    <Compile Include="src\drivers\ms5607_02ba_dev.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\freertos\port\heap_4.c">
@@ -460,6 +461,12 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\util\downlink_frame.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\util\twi_interface.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\util\twi_interface.h">
       <SubType>compile</SubType>
     </Compile>
     <None Include="src\ASF\common\boards\board.h">

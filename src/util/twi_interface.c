@@ -23,7 +23,7 @@
 
 #define TWI_TODO_QUEUE_LENGTH 10
 
-static twi_interface_t twie;
+twi_interface_t twie;
 
 uint8_t twi_init()
 {

@@ -82,4 +82,7 @@ uint8_t ms5607_02ba_fetch_queue_data(void);
 rocket_temp_t ms5607_02ba_calculate_temp(uint32_t d2);
 rocket_press_t ms5607_02ba_calculate_press(uint32_t d1, uint32_t d2);
 
+// Processing data
+uint8_t ms5607_02ba_fetch_queue_data(void);
+
 #endif /* MS5607_02BA_DEV_H_ */

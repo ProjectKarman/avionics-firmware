@@ -2,7 +2,7 @@
  * sensor.c
  *
  * Created: 11/19/2015 8:59:23 PM
- *  Author: Nigil Lee
+ *  Authors: Bryce Carter, Nigil Lee, Tim Rupprecht
  */ 
 
 #include "sensor.h"
@@ -71,18 +71,17 @@ void sensor_start_task(void) {
 static void sensor_task_loop() {
   TaskHandle_t sensor_task_handle;
   sensor_timer_t timer_update;
-  static uint8_t temp_debug_variable_breakpoint = 0;
   
   memset(&current_sensor_readings, 0, sizeof(sensors_message_t));
+  
+  // TODO: Originally Bryce was trying to 
+  // twi_interface_t *twie_interface;
+  // twie_interface = &twie;
   
   sensor_initialize();
   startup_timer();
   ms5607_02ba_reset();
   ms5607_02ba_load_prom();
-  
-  temp_debug_variable_breakpoint = 10;
-  
-  twi_interface_t* twie_interface = twie;
 
   for(;;) {
     xQueueReceive(sensor_queue, &timer_update, NULL);
@@ -129,17 +128,6 @@ static void sensor_initialize() {
 
 static void startup_timer()
 {
-	/*
-	 SENSOR_TIMER.CNT = 0;// Zeroise count
-	 SENSOR_TIMER.PER = 800; //Period
-	 SENSOR_TIMER.CTRLA = TC_CLKSEL_DIV1_gc; //Divider
-	 SENSOR_TIMER.INTCTRLA = TC_OVFINTLVL_LO_gc; //Liow level interrupt
-	 SENSOR_TIMER.INTFLAGS = 0x01; // clear any initial interrupt flags
-	 SENSOR_TIMER.CTRLB = TC_WGMODE_NORMAL_gc; // Normal operation
-	 
-	 PMIC.CTRL |= PMIC_LOLVEN_bm;
-	 */
-	
 	tc_enable(&SENSOR_TIMER);
 	tc_set_wgm(&SENSOR_TIMER, TC_WG_NORMAL);
 	tc_write_period(&SENSOR_TIMER, F_CPU / (32 * BASE_HERTZ_MODIFIER));
@@ -192,6 +180,5 @@ static inline void add_priority_event(enum sensor_queue_state_type event_type, v
 		.type = event_type
 	};
 	memcpy(event.data, data, EVENT_DATA_SIZE_MAX);
-	// xQueueSendToFrontFromISR(sensor_queue, &event, NULL);
 	xQueueSendToFront(sensor_queue, &event, NULL);
 };
