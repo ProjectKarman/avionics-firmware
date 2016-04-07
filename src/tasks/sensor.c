@@ -41,6 +41,12 @@ typedef struct {
 	uint8_t data[EVENT_DATA_SIZE_MAX];
 } sensor_timer_t;
 
+typedef enum {
+	START_UP,
+	PRESSURE,
+	TEMPURATURE
+} MS5607_02BA_POLL_MODE_T;
+
 extern twi_interface_t twie;
 extern ms5607_02ba_dev_t ms5607_02ba;
 
@@ -72,6 +78,8 @@ static void sensor_task_loop() {
   TaskHandle_t sensor_task_handle;
   sensor_timer_t timer_update;
   
+  MS5607_02BA_POLL_MODE_T altimeter_poll_mode = START_UP;
+  
   memset(&current_sensor_readings, 0, sizeof(sensors_message_t));
   
   // TODO: Originally Bryce was trying to 
@@ -94,7 +102,12 @@ static void sensor_task_loop() {
 			  if(get_ms5607_data_countdown == 0)
 			  {
 				  xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.prepareADC, NULL);
-				  xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.getADC, NULL);
+				  if (altimeter_poll_mode == PRESSURE || altimeter_poll_mode == START_UP) {
+					xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.getADC_pressure, NULL);
+				  }
+				  else {
+					  xQueueSendToBack(twie.twi_todo_queue, &ms5607_02ba.getADC_temperature, NULL);
+				  }
 			  }
 		  }
 			// Add more countdowns here
@@ -109,10 +122,10 @@ static void sensor_task_loop() {
         break;
     }
     timer_update.type = SENSOR_ENTRY_NONE;
-    if (ms5607_02ba_fetch_queue_data())
-	{
-		// send_to_tranceiver();
-	}
+    
+	ms5607_02ba_fetch_queue_press(&current_sensor_readings);
+	ms5607_02ba_fetch_queue_temp(&current_sensor_readings);
+	
 	twi_process_queue();
   }
 }  

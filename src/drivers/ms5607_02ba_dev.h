@@ -15,6 +15,7 @@
 #include "semphr.h"
 #include "task.h"
 #include "twi_interface.h"
+#include "message_types.h"
 
 #ifndef MS5607_02BA_DEV_H_
 #define MS5607_02BA_DEV_H_
@@ -44,8 +45,14 @@ typedef struct {
 } prom_t;
 
 typedef struct ms5607_02ba_dev {
-	QueueHandle_t ms5607_02ba_data_queue;
+	QueueHandle_t ms5607_02ba_prom_reg_data_queue;
+	QueueHandle_t ms5607_02ba_temperature_data_queue;
+	QueueHandle_t ms5607_02ba_pressure_data_queue;
+	
 	twi_interface_t* twi_interface;
+	
+	uint32_t d1;
+	uint32_t d2;
 	
 	rocket_temp_t ms5607_02ba_tempurature;
 	rocket_press_t ms5607_02ba_pressure;
@@ -62,7 +69,10 @@ typedef struct ms5607_02ba_dev {
 	twi_task_t prepareD2;
 	
 	twi_task_t prepareADC;
-	twi_task_t getADC;
+	
+	twi_task_t getADC_temperature;
+	twi_task_t getADC_pressure;
+	
 	
 } ms5607_02ba_dev_t;
 
@@ -76,13 +86,18 @@ uint8_t ms5607_02ba_convert_d1(void);
 uint8_t ms5607_02ba_convert_d2(void);
 uint8_t ms5607_02ba_read_adc(uint32_t* adc_value);
 
-uint8_t ms5607_02ba_fetch_queue_data(void);
 
 // Clean up raw data
 rocket_temp_t ms5607_02ba_calculate_temp(uint32_t d2);
 rocket_press_t ms5607_02ba_calculate_press(uint32_t d1, uint32_t d2);
 
 // Processing data
-uint8_t ms5607_02ba_fetch_queue_data(void);
+uint8_t ms5607_02ba_fetch_queue_temp(sensors_message_t* curr_sensor_readings);
+uint8_t ms5607_02ba_fetch_queue_press(sensors_message_t* curr_sensor_readings);
+
+uint16_t ms5607_02ba_fetch_queue_data_blocking();
+
+static inline uint32_t convert_buffer_24(uint8_t *buffer);
+static inline uint16_t convert_buffer_16(uint8_t *buffer);
 
 #endif /* MS5607_02BA_DEV_H_ */
