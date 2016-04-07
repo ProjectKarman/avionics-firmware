@@ -40,14 +40,6 @@ typedef struct twi_interface {
 	// boolean is i2c bus in use?
 	uint8_t twi_bus_locked;
 	
-	struct twi_write {
-		twi_isr_callback_t twi_write_isr_callback;
-	};
-	
-	struct twi_read {
-		twi_isr_callback_t twi_read_isr_callback;
-	};
-	
 } twi_interface_t;
 
 typedef struct twi_task {
@@ -58,10 +50,11 @@ typedef struct twi_task {
     uint8_t length;
 } twi_task_t;
 
-uint8_t twi_init(); // Create queue and config registers
+uint8_t twi_init(void); // Create queue and config registers
 uint8_t twi_add_task_to_queue(twi_task_t* task);
-uint8_t twi_process_queue();
-uint8_t twi_process_queue_blocking();
+uint8_t start_task_from_queue(void);
+uint8_t twi_process_queue(void);
+uint8_t twi_process_queue_blocking(void);
 
 uint8_t twi_write(uint8_t device, uint8_t* data, uint8_t length);
 uint8_t twi_read(uint8_t device, uint8_t length);

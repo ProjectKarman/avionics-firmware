@@ -40,51 +40,74 @@ uint8_t twi_init()
 
     // Set up higher level objects
     twie.twi_todo_queue = xQueueCreate(TWI_TODO_QUEUE_LENGTH, sizeof(twi_task_t));
+
+    // Set the twie object properties
+    twie.twi_bus_locked = 0;
+	return 0;
 }
 
 uint8_t twi_add_task_to_queue(twi_task_t* task)
 {
-	xQueueSendToFront(twie.twi_todo_queue, task, NULL);
+	xQueueSendToFront(twie.twi_todo_queue, task, portMAX_DELAY);
 	return 1;
 }
 
-uint8_t twi_process_queue() {
-	twi_task_t* task;
-	
-	if (twie.twi_bus_locked == 1) {
-		return 3;
-	}
-	
-	xQueuePeek(twie.twi_todo_queue, task, 0);
-	
-	twie.twi_device_addr = task->device_addr;
-		
-	if (task->mode == TWI_READ_MODE) {
-		twie.twi_read_index = 0;
-	}
-	else if (task->mode == TWI_WRITE_MODE) {
-		twie.twi_write_data_index = 0;
-	}
-	else if (task->mode == TWI_IDLE_MODE) {
-		return 2;
-	}
-	else {
-		return 0;
-	}
-	return 1;
-}
-
-uint8_t twi_process_queue_blocking();
-
-uint8_t twi_write(uint8_t device, uint8_t* data, uint8_t length)
+uint8_t start_task_from_queue(void)
 {
-    TWI_MASTER.MASTER.ADDR = device << 1;
+    twi_task_t* task = 0;
+
+    if (xQueuePeek(twie.twi_todo_queue, task, 0) == pdTRUE)
+    {
+        twie.twi_device_addr = task->device_addr;
+
+        switch (task->mode)
+        {
+            case TWI_READ_MODE:
+                twie.twi_read_index = 0;
+                break;
+            case TWI_WRITE_MODE:
+                twie.twi_write_data_index = 0;
+                break;
+            case TWI_IDLE_MODE:
+                return 0;
+        }
+        twie.twi_bus_locked = 1;
+        TWI_MASTER.MASTER.ADDR = task->device_addr << 1;
+        return 1; // item was processed from queue
+	}
+	return 2; // No items in queue to process
 }
+
+
+uint8_t twi_process_queue() 
+{	
+	if (twie.twi_bus_locked == 1) 
+	{
+		return 3; // TWI Bus is not available
+	}
+	
+    return start_task_from_queue();
+}
+
+uint8_t twi_process_queue_blocking()
+{
+    while(uxQueueMessagesWaiting(twie.twi_todo_queue) != 0)
+    {
+        if (twie.twi_bus_locked == 0)
+        {
+            start_task_from_queue();
+        }
+        vTaskDelay(1);
+    }
+	return 0;
+}
+
+
 
 ISR(TWIE_TWIM_vect)
 {
     uint8_t task_done = 0;
-    twi_task_t*current_task;
+    twi_task_t*current_task = 0;
     xQueuePeekFromISR(twie.twi_todo_queue, current_task);
     switch(current_task->mode)
     {
@@ -109,11 +132,14 @@ ISR(TWIE_TWIM_vect)
             {
                 task_done = 1;
                 int i = 0;
-                for (i; i < current_task->length; i++)
+                for (; i < current_task->length; i++)
                 {
-                    xQueueSendToBackFromISR(current_task->return_queue, twie.twi_read_data[i], NULL);
+                    xQueueSendToBackFromISR(current_task->return_queue, &twie.twi_read_data[i], NULL); // TODO: confirm that the pass by ref does not cause a problem here
                 }
             }
+	  case TWI_IDLE_MODE:
+		task_done = 1;
+		break;
     }
     if (task_done)
     {
