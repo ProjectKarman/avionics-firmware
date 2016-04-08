@@ -8,13 +8,13 @@
 #include "sensor.h"
 
 #include "asf.h"
-//#include "tc.h"
+#include "tc.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 
 #include "ms5607_02ba.h"
-#include "hmc5883l.h"
+//#include "hmc5883l.h"
 // #include "fxls8471qr1.h"
 // #include "l3g4200d.h"
 #include "nrf24l01p.h"
@@ -72,15 +72,14 @@ static void sensor_task_loop() {
   TaskHandle_t sensor_task_handle;
   sensor_timer_t timer_update;
   static uint8_t temp_debug_variable_breakpoint = 0;
-  static hmc5883l_rawdata_t magnetometer_data; 
+  //static hmc5883l_rawdata_t magnetometer_data; 
 
   memset(&current_sensor_readings, 0, sizeof(sensors_message_t));
   
   sensor_initialize();
   startup_timer();
-  //ms5607_02ba_reset();
-  //ms5607_02ba_load_prom();
-  hmc5883l_init();
+  ms5607_02ba_reset();
+  ms5607_02ba_load_prom();
   
   temp_debug_variable_breakpoint = 10;
   
@@ -97,7 +96,7 @@ static void sensor_task_loop() {
 	    break;	
       case SENSOR_ENTRY_100Hz:
 		    temp_debug_variable_breakpoint += 3;
-        hmc5883l_read_data_single(&magnetometer_data);
+        //hmc5883l_read_data_single(&magnetometer_data);
         break;
     }
 	// send_to_tranceiver();
@@ -107,7 +106,7 @@ static void sensor_task_loop() {
 
 static void sensor_initialize() {
   ms5607_02ba_init();
-  hmc5883l_init();  
+  //hmc5883l_init();  
   // fxls8471qr1_init(void);
   // l3g4200d_init();
   

@@ -36,14 +36,14 @@ int main(void)
 {	
 	board_init();
 
-  ioport_set_pin_dir(LEDA, IOPORT_DIR_OUTPUT);
-  ioport_set_pin_dir(LEDB, IOPORT_DIR_OUTPUT);
+  //ioport_set_pin_dir(LEDA, IOPORT_DIR_OUTPUT);
+  //oport_set_pin_dir(LEDB, IOPORT_DIR_OUTPUT);
 
   // start tasks
-  xTaskCreate(blink1, "blink1", 64, NULL, 2, NULL);
-  xTaskCreate(blink2, "blink2", 64, NULL, 2, NULL);
+  //xTaskCreate(blink1, "blink1", 64, NULL, 2, NULL);
+  //xTaskCreate(blink2, "blink2", 64, NULL, 2, NULL);
   
-  transceiver_start_task();
+  //transceiver_start_task();
   sensor_start_task();
 
   vTaskStartScheduler();

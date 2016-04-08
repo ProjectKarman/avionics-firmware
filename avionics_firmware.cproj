@@ -443,6 +443,9 @@
     <Compile Include="src\drivers\ms5607_02ba.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\drivers\neutwi.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\freertos\port\heap_4.c">
       <SubType>compile</SubType>
     </Compile>

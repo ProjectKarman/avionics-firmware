@@ -42,14 +42,36 @@ enum hmc5883l_command_type {
 	CMD_TYPE_READ_ASYNC
 };
 
-#ifndef lambda
-#define lambda(l_ret_type, l_arguments, l_body)         \
-({                                                    \
-  l_ret_type l_anonymous_functions_name l_arguments   \
-  l_body                                            \
-  &l_anonymous_functions_name;                        \
-})
-#endif
+//#ifndef lambda
+//#define lambda(l_ret_type, l_arguments, l_body)         \
+//({                                                    \
+  //l_ret_type l_anonymous_functions_name l_arguments   \
+  //l_body                                            \
+  //&l_anonymous_functions_name;                        \
+//})
+//#endif
+
+enum hmc5883l_sensor_mode_t{
+	HMC5883L_MODE_CONTINUOUS,
+	HMC5883L_MODE_SINGLE,
+	HMC5883L_MODE_IDLE
+};
+
+enum hmc5883l_reg_t {
+	HMC5883L_CRA,		//Control register A
+	HMC5883L_CRB,		//Control register B
+	HMC5883L_MODE,
+	HMC5883L_XMSB,
+	HMC5883L_XLSB,
+	HMC5883L_ZMSB,
+	HMC5883L_ZLSB,
+	HMC5883L_YMSB,
+	HMC5883L_YLSB,
+	HMC5883L_STATUS,
+	HMC5883L_IDA,		//Identification register A
+	HMC5883L_IDB,		//Identification register B
+	HMC5883L_IDC		//Identification register C
+};
 
 //local variables
 static hmc5883l_rawdata_t rawdata;
@@ -65,8 +87,8 @@ static QueueHandle_t hmc5883l_data_queue;
 static SemaphoreHandle_t data_queue_semaphore;
 
 //local functions
-static void write_command_async(uint16_t cmd, hmc5883l_callback_t callback);
-static void read_command_async(uint8_t read_len, hmc5883l_callback_t callback);
+static void write_command_async(int cmd);
+static void read_command_async(uint8_t read_len);
 //static void write_handler();
 //static void read_handler();
 
@@ -93,17 +115,22 @@ void hmc5883l_init(void){
   }
 
 	//Set options for configuration registers
-	write_command_async((HMC5883L_CRA << 8) & HMC5883L_CRA_DEFAULT, lambda(void, (void),{
-    write_command_async((HMC5883L_CRB << 8) & HMC5883L_CRB_DEFAULT, NULL); })); //First set CRA to the default, then CRB to the default
+  int16_t CRA_CMD = (HMC5883L_CRA << 8) | HMC5883L_CRA_DEFAULT;
+  int16_t CRB_CMD = (HMC5883L_CRB << 8) | HMC5883L_CRB_DEFAULT;
+	//write_command_async(CRA_CMD, lambda(void, (void),{
+    //write_command_async(CRB_CMD, NULL); })); //First set CRA to the default, then CRB to the default
+  write_command_async(0x0010);
 }
 
 /**Send a write command asynchronously. i.e. tell the TWI hardware we want to write something
 	Then wait for the interrupt to trigger. Data is sent in the ISR
  */
-void write_command_async(uint16_t cmd, hmc5883l_callback_t callback) {
+void write_command_async(int cmd) 
+{
+  int curr_cmd = cmd;
 	//Our command can be up to two bytes long. We store each byte in our buffer separately
-	*op_buffer = cmd & 0xFF;
-	*(op_buffer + 1) = (cmd >> 8);
+	op_buffer[0] = (uint8_t)(cmd & 0xFF);
+	op_buffer[1] = (uint8_t)(cmd >> 8);
 
 	//Set global variables for use in ISR
 	op_buffer_index = 0;
@@ -112,20 +139,20 @@ void write_command_async(uint16_t cmd, hmc5883l_callback_t callback) {
 	else					//Two byte command --> buffer length is 2
 		op_buffer_len = 2;
 	current_command_type = CMD_TYPE_WRITE_ASYNC;
-	current_op_callback = callback;
+	//current_op_callback = callback;
 	//Inform the master that we want to write something to this address
-	TWI_MASTER.MASTER.ADDR = HMC5883L_ADDRESS_BASE << 1;
+	TWI_MASTER.MASTER.ADDR = (HMC5883L_ADDRESS_BASE << 1);
 }
 
 /**Send a read command asynchronously. i.e. tell the TWI hardware that we want to read something
 	Then wait for the interrupt to trigger. Data is stored into the op_buffer in the ISR
 */
-void read_command_async(uint8_t read_len, hmc5883l_callback_t callback) {
+void read_command_async(uint8_t read_len) {
 	//First we send how many bytes we want to read
   *op_buffer = read_len; //Store our requested bytes into the buffer
   op_buffer_len = 1;
   op_buffer_index = 0;
-	current_op_callback = callback;
+	//current_op_callback = callback;
 	current_command_type = CMD_TYPE_REQ_READ; //We're going to request a read
   sent_req_bytes = 0; //we haven't told the slave how many bytes we want
 	TWI_MASTER.MASTER.ADDR = HMC5883L_ADDRESS_BASE << 1 | 0x01; //Tell slave to send us data
@@ -145,7 +172,7 @@ void hmc5883l_read_data_single (hmc5883l_rawdata_t* raw_data_ptr)
     {
        return;
     }
-    static uint8_t data_buf[HMC5883L_BUFFER_SIZE];
+    uint8_t data_buf[HMC5883L_BUFFER_SIZE];
     for(i = 0; i < HMC5883L_BUFFER_SIZE; i++){
       xQueueReceive(hmc5883l_data_queue, (data_buf + i), portMAX_DELAY);
     }
@@ -158,9 +185,13 @@ void hmc5883l_read_data_single (hmc5883l_rawdata_t* raw_data_ptr)
 
 
 	//Should grab a "command running" semaphore here?
-	write_command_async((HMC5883L_MODE << 8) & HMC5883L_MODE_SINGLE, lambda(void, (void), {
-    read_command_async(HMC5883L_BUFFER_SIZE, NULL);}));     //Send "Single measurement mode" message, then Read six bytes
-
+	//write_command_async((HMC5883L_MODE << 8) & HMC5883L_MODE_SINGLE, lambda(void, (void), {
+  //  read_command_async(HMC5883L_BUFFER_SIZE, NULL);}));     //Send "Single measurement mode" message, then Read six bytes
+  xSemaphoreTake(data_queue_semaphore, portMAX_DELAY);
+  write_command_async((HMC5883L_MODE << 8) | HMC5883L_MODE_SINGLE);
+  //write_command_async(0x0201);
+  xSemaphoreTake(data_queue_semaphore, portMAX_DELAY);
+  read_command_async(HMC5883L_BUFFER_SIZE);
   data_recieved = 1; //Next time we'll have data, I swear
   
 	
@@ -227,6 +258,7 @@ void hmc5883l_read_handler()
 /*This one is based on Nigel's odd code from the altimeter driver and Atmel's code
 	Basic idea is we control the bus, screw checking the status, use a state machine instead.
 */
+/*
 ISR(TWIE_TWIM_vect)
 {
 	switch(current_command_type)
@@ -238,11 +270,13 @@ ISR(TWIE_TWIM_vect)
         op_buffer_len = op_buffer[op_buffer_index];  //*op_buffer is our buffer length for the read, so let's make that our buffer_len
         op_buffer_index = 0; //make sure buffer index is 0
         sent_req_bytes = 1; //We just sent how many bytes we want
+        xSemaphoreGiveFromISR(data_queue_semaphore, NULL);
       }
       else //sent_req_bytes is 1, so we just sent how many bytes we want
       {
         TWI_MASTER.MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;  //send a stop
         current_command_type = CMD_TYPE_READ_ASYNC; //Set the state to read_async so we'll react properly when the slave sends us data
+        xSemaphoreGiveFromISR(data_queue_semaphore, NULL);
       }
     break;
 	case CMD_TYPE_READ_ASYNC: //We've initiated a read command
@@ -263,11 +297,13 @@ ISR(TWIE_TWIM_vect)
         {
           current_op_callback(); //If we had a function call queued up, let's do it now
         }
+        xSemaphoreGiveFromISR(data_queue_semaphore, NULL);
 			}
 		}
 		else //Either we weren't expecting data, or we got too much data
 		{
 			TWI_MASTER.MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+      xSemaphoreGiveFromISR(data_queue_semaphore, NULL);
 			//That's also something we could tell someone about (yikes)
 		}
 		break;
@@ -285,6 +321,7 @@ ISR(TWIE_TWIM_vect)
 			{
   			current_op_callback(); //If we had a function call queued up, let's do it now
 			}
+      xSemaphoreGiveFromISR(data_queue_semaphore, NULL);
 		}
 		break;
 	default: //We should never get here
@@ -293,3 +330,4 @@ ISR(TWIE_TWIM_vect)
 	}
 }
 
+*/
