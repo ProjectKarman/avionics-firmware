@@ -49,7 +49,7 @@ typedef struct ms5607_02ba_dev {
 	QueueHandle_t ms5607_02ba_temperature_data_queue;
 	QueueHandle_t ms5607_02ba_pressure_data_queue;
 	
-	twi_interface_t* twi_interface;
+	// twi_interface_t* twi_interface;
 	
 	uint32_t d1;
 	uint32_t d2;
@@ -77,7 +77,7 @@ typedef struct ms5607_02ba_dev {
 } ms5607_02ba_dev_t;
 
 // initialization functions
-void ms5607_02ba_init(twi_interface_t*);
+void ms5607_02ba_init(/*twi_interface_t* */);
 uint8_t ms5607_02ba_reset(void);
 uint8_t ms5607_02ba_load_prom(void);
 

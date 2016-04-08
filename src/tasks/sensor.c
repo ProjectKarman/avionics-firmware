@@ -148,7 +148,7 @@ static void sensor_task_loop(void * pvParameters)
 }
 
 static void sensor_initialize() {
-	// ms5607_02ba_init();
+	ms5607_02ba_init();
 
 	// fxls8471qr1_init(void);
 	// l3g4200d_init();

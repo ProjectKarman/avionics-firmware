@@ -40,12 +40,13 @@ ms5607_02ba_dev_t ms5607_02ba;
 prom_t prom_data;
 
 // initialization functions
-void ms5607_02ba_init(twi_interface_t* twi_obj) {
+// NOTE: Does the altimeter need reference to the twi object? I don;t think so. Further testing needed.
+void ms5607_02ba_init(/*twi_interface_t* twi_obj*/) {
 	ms5607_02ba.ms5607_02ba_prom_reg_data_queue = xQueueCreate(DATA_QUEUE_DEPTH, sizeof(uint8_t));
 	ms5607_02ba.ms5607_02ba_temperature_data_queue = xQueueCreate(DATA_QUEUE_DEPTH, sizeof(uint8_t));
 	ms5607_02ba.ms5607_02ba_pressure_data_queue = xQueueCreate(DATA_QUEUE_DEPTH, sizeof(uint8_t));
 	
-	ms5607_02ba.twi_interface = twi_obj;
+	// ms5607_02ba.twi_interface = twi_obj;
 	
 	for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++) {
 		*((uint16_t *)&ms5607_02ba.prom_data + prom_addr) = 0x00;
