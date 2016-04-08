@@ -47,8 +47,6 @@ Created: 2/2/2016
 
 static void i2c_start(void);
 static void i2c_end(void);
-static void send_command(uint8_t cmd);
-static void send_command_async(uint8_t cmd, si7021_callback_t callback);
 
 void Si7021_A20_measure_temp()
 {
@@ -118,22 +116,4 @@ static void i2c_start(void)
 static void i2c_end(void)
 {
 
-}
-static void send_command(uint8_t cmd)
-{
-  *op_buffer = cmd;
-  op_buffer_index = 0;
-  op_buffer_len = 1;
-  current_command_type = CMD_TYPE_WRITE;
-  TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1;
-  //xSemaphoreTake(command_complete_semaphore, portMAX_DELAY); // Wait for command to complete
-}
-
-static void send_command_async(uint8_t cmd, si7021_callback_t callback) {
-  *op_buffer = cmd;
-  op_buffer_index = 0;
-  op_buffer_len = 1;
-  current_command_type = CMD_TYPE_WRITE_ASYNC;
-  current_op_callback = callback;
-  TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1;
 }
