@@ -17,7 +17,7 @@ Created: 2/2/2016
 #include "task.h"
 
 #define SCLK_FREQ 400000
-#define SEVEN_BIT_SLAVE_ADDRESS 0x40
+#define DEVICE_ADDRESS 0x40
 #define MEASURE_RH_HOLD 0xE5
 #define MEASURE_RH_NO_HOLD 0xF5
 #define MEASURE_T_HOLD 0xE3
@@ -26,14 +26,8 @@ Created: 2/2/2016
 #define RESET 0xFE
 #define WRITE_RH_T_REG1 0xE6
 #define READ_RH_T_REG1 0xE7
-#define WRITE_HEATER 0x51
-#define READ_HEATER 0x11
-#define READ_1ST_BYTE 0xFA
-#define READ_1ST_BYTE_2 0x0F
-#define READ_2ND_BYTE 0xFC
-#define READ_2ND_BYTE_2 0xC9
-#define READ_FW_REV 0x84
-#define READ_FW_REV 0xB8
+#define WRITE_HEATER_CTRL_REG 0x51
+#define READ_HEATER_CTRL_REG 0x11
 
 //IO definitions
 #define I2C_CS_PIN //????
@@ -45,18 +39,62 @@ Created: 2/2/2016
 #define RH_OFFSET 65536
 #define RH_SCALAR 125
 
-static void i2c_start(void);
-static void i2c_end(void);
+Si7021_A20_t Si7021_A20;
 
-void Si7021_A20_measure_temp()
+Si7021_A20_init()
 {
+	Si7021_A20.Si7021_A20_temperature_data_queue = xQueueCreate(DATA_QUEUE_DEPTH, sizeof(uint8_t));
+	Si7021_A20.Si7021_A20_humidity_data_queue = xQueueCreate(DATA_QUEUE_DEPTH, sizeof(uint8_t));
 
+    //issue temp read hold
+    Si7021_A20.issue_temp_read_hold.device_addr = DEVICE_ADDRESS >> 1;
+    Si7021_A20.issue_temp_read_hold.mode = TWI_WRITE_MODE;
+    Si7021_A20.issue_temp_read_hold.write_data[0] = MEASURE_T_HOLD;
+    Si7021_A20.issue_temp_read_hold.length = 1;
+
+    //issue rh read hold
+    Si7021_A20.issue_rh_read_hold.device_addr = DEVICE_ADDRESS >> 1;
+    Si7021_A20.issue_rh_read_hold.mode = TWI_WRITE_MODE;
+    Si7021_A20.issue_rh_read_hold.write_data[0] = MEASURE_RH_HOLD;
+    Si7021_A20.issue_rh_read_hold.length = 1;
+
+    //issue temp read no hold
+    Si7021_A20.issue_temp_read_no_hold.device_addr = DEVICE_ADDRESS >> 1;
+	Si7021_A20.issue_temp_read_no_hold.mode = TWI_WRITE_MODE;
+	Si7021_A20.issue_temp_read_no_hold.write_data[0] = MEASURE_T_NO_HOLD;
+	Si7021_A20.issue_temp_read_no_hold.length = 1;
+
+    //issue rh read no hold
+    Si7021_A20.issue_rh_read_no_hold.device_addr = DEVICE_ADDRESS >> 1;
+	Si7021_A20.issue_rh_read_no_hold.mode = TWI_WRITE_MODE;
+	Si7021_A20.issue_rh_read_no_hold.write_data[0] = MEASURE_RH_NO_HOLD;
+	Si7021_A20.issue_rh_read_no_hold.length = 1;
+
+    //get temp read
+    Si7021_A20.receive_temp_read.return_queue = Si7021_A20.Si7021_A20_humidity_data_queue;
+	Si7021_A20.receive_temp_read.device_addr = DEVICE_ADDRESS >> 1;
+	Si7021_A20.receive_temp_read.mode = TWI_READ_MODE;
+	Si7021_A20.receive_temp_read.length = 4;
+
+    //get rh read
+    Si7021_A20.receive_rh_read.return_queue = Si7021_A20.Si7021_A20_temperature_data_queue;
+	Si7021_A20.receive_rh_read.device_addr = DEVICE_ADDRESS >> 1;
+	Si7021_A20.receive_rh_read.mode = TWI_READ_MODE;
+	Si7021_A20.receive_rh_read.length = 8;
 }
-void Si7021_A20_measure_rh()
-{
 
+uint8_t Si7021_A20_issue_temp_read() {
+	twi_add_task_to_queue(&Si7021_A20.issue_temp_read);
 }
-
+uint8_t Si7021_A20_issue_rh_read() {
+	twi_add_task_to_queue(&Si7021_A20.issue_temp_read);
+}
+uint8_t Si7021_A20_receive_temp_read() {
+	twi_add_task_to_queue(&Si7021_A20.receive_temp_read);
+}
+uint8_t Si7021_A20_receive_rh_read() {
+	twi_add_task_to_queue(&Si7021_A20.receive_rh_read);
+}
 
 static uint16_t convert_to_relative(uint16_t RH_Code) //takes RH_Code, returns percent relative humidity
 {
@@ -71,49 +109,45 @@ static uint16_t convert_to_relative(uint16_t RH_Code) //takes RH_Code, returns p
 	}
 	return RH; //factor of RH_OFFSET larger than RH from 1 to 100
 }
-static uint32_t convert_to_celsius(uint16_t Temp_Code)
+static int32_t convert_to_celsius(uint16_t Temp_Code)
 {
 	return ((17572*Temp_Code)-4685*TEMP_OFFSET); //offset by 6553600 (65536 * 100)
 }
-static uint32_t retrieve_serial()
-{
-	//no params
-	//returns serial number of chip, comes in 8 data bytes
-	//uses two I2C commands
-	i2c_start(); //first access
-	i2c_end();
 
-	i2c_start(); //second access
-	i2c_end();
-}
-static uint64_t retrieve_firmware_rev()
-{
-	uint64_t fw_rev;
-	//no params
-	//returns firmware revision of chip
-	i2c_start();
-	//slave address
-	//write
-	//acknowledge
-	//0x84
-	//acknowledge
-	//0xB8
-	//acknowledge
-	i2c_start(); //why twice
-	//slave address
-	//read
-	//acknowledge
-	//firmware revision comes in
-	//acknowledge
-	//NA????
-	i2c_end();
-	return fw_rev; //0xFF = firmware rev 1.0, 0x20 = firmware rev 2.0
-}
-static void i2c_start(void)
-{
+uint8_t Si7021_A20_fetch_queue_temp(sensors_message_t* curr_sensor_readings) {
+	// uint32_t device_data = 0x0000; // Replaced with direct reference to D1
+	uint8_t queue_result[2];
+	uint8_t queue_index = 0;
+	uint8_t status;
 
-}
-static void i2c_end(void)
-{
+	status = 0;
+	status = xQueuePeek(Si7021_A20.Si7021_A20_temperature_data_queue, &queue_result, 0);
 
+	if (status == 1) {
+		for (uint8_t queue_index = 0; queue_index < 3; queue_index++) {
+			xQueueReceive(Si7021_A20.Si7021_A20_temperature_data_queue, &queue_result[queue_index], 0);
+		}
+		Si7021_A20.temp = convert_to_celcius(queue_result);
+		curr_sensor_readings->Si7021_A20_temp = Si7021_A20.temp;
+	}
+	return status;
+}
+
+uint8_t Si7021_A20_fetch_queue_rh(sensors_message_t* curr_sensor_readings) {
+	// uint32_t device_data = 0x0000; // Replaced with direct reference to D1
+	uint8_t queue_result[2];
+	uint8_t queue_index = 0;
+	uint8_t status;
+
+	status = 0;
+	status = xQueuePeek(Si7021_A20.Si7021_A20_humidity_data_queue, &queue_result, 0);
+
+	if (status == 1) {
+		for (uint8_t queue_index = 0; queue_index < 3; queue_index++) {
+			xQueueReceive(Si7021_A20.Si7021_A20_humidity_data_queue, &queue_result[queue_index], 0);
+		}
+		Si7021_A20.rh = convert_to_relative(queue_result);
+		curr_sensor_readings->Si7021_A20_rh = Si7021_A20.rh;
+	}
+	return status;
 }
