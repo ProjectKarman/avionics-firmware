@@ -109,10 +109,14 @@ void ms5607_02ba_init(/*twi_interface_t* twi_obj*/) {
 	ms5607_02ba.getADC_pressure.length = 3;
 }
 
+// Must reset the device before use at start up
 uint8_t ms5607_02ba_reset(void) {
 	twi_add_task_to_queue(&ms5607_02ba.resetDevice);
 }
 
+// You need to load the altimeter's device constants off of it
+// to be used in the conversion from the device's raw data to 
+// a readable format
 uint8_t ms5607_02ba_load_prom(void) {
 	for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++)  {
 		ms5607_02ba.preparePromReg.write_data[0] = CMD_READ_REG(prom_addr);
@@ -125,19 +129,28 @@ uint8_t ms5607_02ba_load_prom(void) {
 }
 
 // Commands / Reading Data
+// Prepare D1 for adc read
 uint8_t ms5607_02ba_convert_d1() {
 	twi_add_task_to_queue(&ms5607_02ba.prepareD1);
 }
 
+// Prepare D2 for adc read
 uint8_t ms5607_02ba_convert_d2() {
 	twi_add_task_to_queue(&ms5607_02ba.prepareD2);
 }
 
-uint8_t ms5607_02ba_prepare_adc(uint32_t* adc_value) {
-	twi_add_task_to_queue(&ms5607_02ba.prepareADC);
+// Prepare to read the analog to digital converter with both write and
+// resulting read commands. They're sent after the time required to prepare
+// their previous convert d1 or 2 command.
+uint8_t ms5607_02ba_prepare_adc(MS5607_02BA_POLL_MODE_T polling_mode) {
 	twi_add_task_to_queue(&ms5607_02ba.prepareADC);
 	
-	// PROCESS QUEUE NON_BLOCKING - RETURNS STATUS
+	if (polling_mode == START_UP || polling_mode == TEMPURATURE) {
+		twi_add_task_to_queue(&ms5607_02ba.getADC_temperature);
+	}
+	else {
+		twi_add_task_to_queue(&ms5607_02ba.getADC_pressure);
+	}
 }
 
 // Clean up raw data
