@@ -3,7 +3,7 @@
  *
  * Created: 10/12/2015 8:47:11 PM
  *  Author: Nigil Lee
- */ 
+ */
 
 
 #ifndef MESSAGE_TYPES_H_
@@ -30,6 +30,8 @@ typedef struct {
   l3g4200d_raw_xyz_t gyro_data;	// Am I allowed to use this data type in this fashion?
   int32_t rocket_tempurature;
   int32_t rocket_pressure;
+  int32_t Si7021_A20_temp;
+  uint16_t Si7021_A20_rh;
   uint32_t time_stamp;
 } sensors_message_t;
 
