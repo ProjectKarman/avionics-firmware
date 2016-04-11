@@ -140,12 +140,12 @@ uint8_t hmc5883l_fetch_queue_data(hmc5883l_rawdata_t *rawdata_ptr){
         return 0;
       }
     }
-    rawdata_ptr->x_magnitude = queue_result[0];
-    rawdata_ptr->x_magnitude |= (queue_result[1] << 8);
-    rawdata_ptr->y_magnitude = queue_result[2];
-    rawdata_ptr->y_magnitude |= (queue_result[3] << 8);
-    rawdata_ptr->z_magnitude = queue_result[4];
-    rawdata_ptr->z_magnitude |= (queue_result[5] << 8);
+    rawdata_ptr->x_magnitude = queue_result[1];         //XLSB
+    rawdata_ptr->x_magnitude |= (queue_result[0] << 8); //XMSB
+    rawdata_ptr->y_magnitude = queue_result[3];         //YLSB
+    rawdata_ptr->y_magnitude |= (queue_result[2] << 8); //YMSB
+    rawdata_ptr->z_magnitude = queue_result[5];         //ZLSB
+    rawdata_ptr->z_magnitude |= (queue_result[4] << 8); //ZMSB
   }
 
   twi_add_task_to_queue(&hmc5883l_obj.resetRegPointer);
