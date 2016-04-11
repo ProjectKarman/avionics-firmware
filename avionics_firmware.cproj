@@ -433,6 +433,12 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\drivers\hmc5883l.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\hmc5883l.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\drivers\ms5607_02ba_dev.c">
       <SubType>compile</SubType>
     </Compile>
