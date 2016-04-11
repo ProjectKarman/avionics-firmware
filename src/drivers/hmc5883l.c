@@ -14,13 +14,21 @@
 
 
 #define HMC5883L_CRA_DEFAULT 0x10
-#define HMC5883L_CRB_DEFAULT 0x20	//First three bits determine sensor gain
+#define HMC5883L_CRB_DEFAULT 0x20	//First three most significant bits determine sensor gain
 //Value of 001 is resolution of 0.92mG / count
 #define HMC5883L_DATA_SIZE 6
 
 #define HMC5883L_ADDRESS_BASE 0x7A
 //#define HMC5883L_WRITE_ADDRESS 0x3C //ADDRESS_BASE << 1
 //#define HMC5883L_READ_ADDRESS 0x3D  //ADDRESS_BASE << 1 | 0x01
+
+//Min and max values stored in data registers
+#define HMC5883L_OUTPUT_MIN		 0xF800
+#define HMC5883L_OUTPUT_MAX		 0x07FF
+
+//In the event of ADC over/underflow or math overflow during bias calc
+//Data register will have the value of -4096 until next valid measurement
+#define HMC5883L_OUTPUT_ERROR	 0xF000
 
 
 enum hmc5883l_sensor_mode_t{
@@ -50,6 +58,13 @@ hmc5883l_t hmc5883l_obj;
 
 void hmc5883l_init(){
   hmc5883l_obj.hmc5883l_data_queue = xQueueCreate(HMC5883L_DATA_SIZE, sizeof(uint8_t));
+
+  /*For all write commands, first byte sent out is device address, followed by register number
+  * and third byte is data
+  * for read, first byte is device address, followed by register number and optional number
+  * of bytes to read. If no bytes to read are sent, reg1ister pointer is simply set to
+  * register number. After a register is read, register pointer will automatically increment
+  * and send value in next register if not all requested bytes have been sent */
 
   //Set configuration registers
   //The data will need to change in configure function
@@ -97,16 +112,22 @@ uint8_t hmc5883l_configure(){
   hmc5883l_obj.setConfigB.write_data[1] = 0xA0;
   hmc5883l_obj.setMode.write_data[1] = HMC5883L_MODE_CONTINUOUS;
 
-  retVal = twi_add_task_to_queue(hmc5883l_obj.setConfigA);
-  retVal &= twi_add_task_to_queue(hmc5883l_obj.setConfigB);
-  retVal &= twi_add_task_to_queue(hmc5883l_obj.setMode);
+  retVal = twi_add_task_to_queue(&hmc5883l_obj.setConfigA);
+  retVal &= twi_add_task_to_queue(&hmc5883l_obj.setConfigB);
+  retVal &= twi_add_task_to_queue(&hmc5883l_obj.setMode);
 
   return retVal;
 }
 
+//Tell twi interface to grab the raw data from the magnetometer and store it in its queue
+uint8_t hmc5883l_read_data(){
+  return twi_add_task_to_queue(&hmc5883l_obj.getRawData);
+}
+
+
 //Read values from magnetometer and store values in raw data struct
 //Time delay before calling this function depends on data rate set in register CRA
-uint8_t hmc5883l_read_data_continuous(hmc5883l_rawdata_t *rawdata_ptr){
+uint8_t hmc5883l_fetch_queue_data(hmc5883l_rawdata_t *rawdata_ptr){
   uint8_t status = 0;
   uint8_t queue_result[6];
   uint8_t queue_index = 0;
@@ -127,7 +148,8 @@ uint8_t hmc5883l_read_data_continuous(hmc5883l_rawdata_t *rawdata_ptr){
     rawdata_ptr->z_magnitude |= (queue_result[5] << 8);
   }
 
-  twi_add_task_to_queue(hmc5883l_obj.resetRegPointer);
+  twi_add_task_to_queue(&hmc5883l_obj.resetRegPointer);
 
   return status;
 }
+
