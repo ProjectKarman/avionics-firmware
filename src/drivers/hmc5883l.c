@@ -132,11 +132,11 @@ uint8_t hmc5883l_fetch_queue_data(hmc5883l_rawdata_t *rawdata_ptr){
   uint8_t queue_result[6];
   uint8_t queue_index = 0;
 
-  status = xQueuePeek(hmc5883l_obj.getRawData.return_queue,queue_result, 0);
+  status = xQueuePeek(hmc5883l_obj.hmc5883l_data_queue, queue_result, 0);
 
   if(status == 1){
     for(queue_index = 0; queue_index < 6; queue_index++){
-      if(!xQueueReceive(hmc5883l_obj.getRawData.return_queue, &queue_result[queue_index], 0)){
+      if(!xQueueReceive(hmc5883l_obj.hmc5883l_data_queue, &queue_result[queue_index], 0)){
         return 0;
       }
     }
