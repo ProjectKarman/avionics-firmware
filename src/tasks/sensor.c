@@ -41,12 +41,6 @@ typedef struct {
 	uint8_t data[EVENT_DATA_SIZE_MAX];
 } sensor_timer_t;
 
-typedef enum {
-	START_UP,
-	PRESSURE,
-	TEMPURATURE
-} MS5607_02BA_POLL_MODE_T;
-
 extern twi_interface_t twie;
 extern ms5607_02ba_dev_t ms5607_02ba;
 
@@ -76,36 +70,29 @@ void sensor_start_task(void) {
 /* Private Functions */
 static void sensor_task_loop(void * pvParameters)
 {
-  sensor_timer_t timer_update;
-  
+  sensor_timer_t timer_update;  
   MS5607_02BA_POLL_MODE_T altimeter_poll_mode = START_UP;
-  
+
   memset(&current_sensor_readings, 0, sizeof(sensors_message_t));
-  
-  // TODO: Originally Bryce was trying to 
-  // twi_interface_t *twie_interface;
-  // twie_interface = &twie;
 
-	// Setup hardware interfaces
-	// ============================
-	twi_init();
-	// ============================
-
-
-
-	//Setup sensor drivers
-	// ============================
+  // Setup hardware interfaces
+  // ============================
+  twi_init();
+  // ============================
+	
+  //Setup sensor drivers
+  // ============================
   sensor_initialize();
   startup_timer();
-  ms5607_02ba_reset(); // TODO: move these guys to the sensor_initialize function
+  ms5607_02ba_reset();
   ms5607_02ba_load_prom();
 	// ============================
 
   for(;;) {
-	  // Wait until a timed event occurs. This is when other tasks get to execute
+	// Wait until a timed event occurs. This is when other tasks get to execute
     xQueueReceive(sensor_queue, &timer_update, portMAX_DELAY);
 
-	  // Operate on sensors based on what timed event occurred
+	// Operate on sensors based on what timed event occurred
     switch(timer_update.type) {
 	  case SENSOR_CHECK_TWI_3200Hz:
 		  // If the event was a 3.2khz tick, update the get data countdowns
@@ -149,11 +136,7 @@ static void sensor_task_loop(void * pvParameters)
 
 static void sensor_initialize() {
 	ms5607_02ba_init();
-
-	// fxls8471qr1_init(void);
-	// l3g4200d_init();
-
-	// nrf24l01p_init();
+	nrf24l01p_init();
 }
 
 // NOTE: send_to_transceiver not yet used
