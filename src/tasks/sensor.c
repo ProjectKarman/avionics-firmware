@@ -70,7 +70,7 @@ void sensor_start_task(void) {
 /* Private Functions */
 static void sensor_task_loop(void * pvParameters)
 {
-  sensor_timer_t timer_update;  
+  sensor_timer_t timer_update;
   MS5607_02BA_POLL_MODE_T altimeter_poll_mode = START_UP;
 
   memset(&current_sensor_readings, 0, sizeof(sensors_message_t));
@@ -79,7 +79,7 @@ static void sensor_task_loop(void * pvParameters)
   // ============================
   twi_init();
   // ============================
-	
+
   //Setup sensor drivers
   // ============================
   sensor_initialize();
@@ -117,17 +117,17 @@ static void sensor_task_loop(void * pvParameters)
 	  case SENSOR_ENTRY_400Hz:
 	  	twi_add_task_to_queue(&ms5607_02ba.prepareD2);
 	  	get_ms5607_data_countdown = 26; // this might not work
-	    break;	
+	    break;
       case SENSOR_ENTRY_100Hz:
         break;
 	  case SENSOR_ENTRY_NONE:
 	    break;
     }
     timer_update.type = SENSOR_ENTRY_NONE;
-    
+
 	ms5607_02ba_fetch_queue_press(&current_sensor_readings);
 	ms5607_02ba_fetch_queue_temp(&current_sensor_readings);
-	
+
 
 	// send_to_tranceiver();
 	twi_process_queue();

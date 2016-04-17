@@ -43,18 +43,18 @@ uint8_t twi_init()
 
     // Set the twie object properties
     twie.twi_bus_locked = 0;
-	return 0;
+    return 0;
 }
 
-uint8_t twi_add_task_to_queue(twi_task_t* task)
+uint8_t twi_add_task_to_queue(twi_task_t *task)
 {
-	xQueueSendToFront(twie.twi_todo_queue, task, portMAX_DELAY);
-	return 1;
+    xQueueSendToFront(twie.twi_todo_queue, task, portMAX_DELAY);
+    return 1;
 }
 
 uint8_t start_task_from_queue(void)
 {
-    twi_task_t* task = 0;
+    twi_task_t *task = 0;
 
     if (xQueuePeek(twie.twi_todo_queue, task, 0) == pdTRUE)
     {
@@ -74,24 +74,24 @@ uint8_t start_task_from_queue(void)
         twie.twi_bus_locked = 1;
         TWI_MASTER.MASTER.ADDR = task->device_addr << 1;
         return 1; // item was processed from queue
-	}
-	return 2; // No items in queue to process
+    }
+    return 2; // No items in queue to process
 }
 
 
-uint8_t twi_process_queue() 
-{	
-	if (twie.twi_bus_locked == 1) 
-	{
-		return 3; // TWI Bus is not available
-	}
-	
+uint8_t twi_process_queue()
+{
+    if (twie.twi_bus_locked == 1)
+    {
+        return 3; // TWI Bus is not available
+    }
+
     return start_task_from_queue();
 }
 
 uint8_t twi_process_queue_blocking()
 {
-    while(uxQueueMessagesWaiting(twie.twi_todo_queue) != 0)
+    while (uxQueueMessagesWaiting(twie.twi_todo_queue) != 0)
     {
         if (twie.twi_bus_locked == 0)
         {
@@ -99,17 +99,16 @@ uint8_t twi_process_queue_blocking()
         }
         vTaskDelay(1);
     }
-	return 0;
+    return 0;
 }
-
 
 
 ISR(TWIE_TWIM_vect)
 {
     uint8_t task_done = 0;
-    twi_task_t*current_task = 0;
+    twi_task_t *current_task = 0;
     xQueuePeekFromISR(twie.twi_todo_queue, current_task);
-    switch(current_task->mode)
+    switch (current_task->mode)
     {
         case TWI_WRITE_MODE:
             if (twie.twi_write_data_index < current_task->length)
@@ -137,13 +136,14 @@ ISR(TWIE_TWIM_vect)
                     xQueueSendToBackFromISR(current_task->return_queue, &twie.twi_read_data[i], NULL); // TODO: confirm that the pass by ref does not cause a problem here
                 }
             }
-	  case TWI_IDLE_MODE:
-		task_done = 1;
-		break;
+        case TWI_IDLE_MODE:
+            task_done = 1;
+            break;
     }
     if (task_done)
     {
         TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc; // Send stop command
+        xQueueReceiveFromISR(twie.twi_todo_queue, current_task, NULL);
         twie.twi_bus_locked = 0;
     }
 }
