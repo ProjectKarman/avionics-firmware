@@ -18,6 +18,7 @@
 // #include "l3g4200d.h"
 #include "Si7021-A20.h"
 #include "nrf24l01p.h"
+#include "hmc5883l.h"
 #include "message_types.h"
 #include "transceiver.h"
 #include "twi_interface.h"
@@ -86,12 +87,6 @@ static void sensor_task_loop(void * pvParameters)
   // ============================
   sensor_initialize();
 
-  ms5607_02ba_reset();
-  twi_process_queue();
-  ms5607_02ba_load_prom();
-
-  startup_timer();
-
 	// ============================
   for(;;) {
 	// Wait until a timed event occurs. This is when other tasks get to execute
@@ -126,28 +121,37 @@ static void sensor_task_loop(void * pvParameters)
       case SENSOR_ENTRY_100Hz:
         break;
 	  case SENSOR_ENTRY_50Hz:
-		Si7021_A20_issue_rh_read_holds();
-		// Si7021_A20_issue_rh_read_noholds();
-		Si7021_A20_receive_rh_read();
-		break;
+		  Si7021_A20_issue_rh_read_holds();
+		  // Si7021_A20_issue_rh_read_noholds();
+		  Si7021_A20_receive_rh_read();
+      hmc5883l_read_data();
+		  break;
 	  case SENSOR_ENTRY_NONE:
 	    break;
     }
     timer_update.type = SENSOR_ENTRY_NONE;
 
-	ms5607_02ba_fetch_queue_press(&current_sensor_readings);
-	ms5607_02ba_fetch_queue_temp(&current_sensor_readings);
+	  ms5607_02ba_fetch_queue_press(&current_sensor_readings);
+	  ms5607_02ba_fetch_queue_temp(&current_sensor_readings);
 
     Si7021_A20_fetch_queue_rh(&current_sensor_readings);
 
-	// send_to_tranceiver();
-	twi_process_queue();
+    hmc5883l_fetch_queue_data(&current_sensor_readings);
+
+	  // send_to_tranceiver();
+	  twi_process_queue();
   }
 }
 
 static void sensor_initialize() {
 	ms5607_02ba_init();
 	// nrf24l01p_init();
+    ms5607_02ba_reset();
+    twi_process_queue();
+    ms5607_02ba_load_prom();
+    hmc5883l_init();
+    hmc5883l_configure();
+    startup_timer();
 }
 
 // NOTE: send_to_transceiver not yet used

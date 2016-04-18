@@ -18,6 +18,8 @@
 //Value of 001 is resolution of 0.92mG / count
 #define HMC5883L_DATA_SIZE 6
 
+#define HMC5883L_STARTUP_WAIT 6 //wait 6 ms before first read
+
 #define HMC5883L_ADDRESS_BASE 0x7A
 //#define HMC5883L_WRITE_ADDRESS 0x3C //ADDRESS_BASE << 1
 //#define HMC5883L_READ_ADDRESS 0x3D  //ADDRESS_BASE << 1 | 0x01
@@ -53,8 +55,10 @@ enum hmc5883l_reg_t {
   HMC5883L_IDC		//Identification register C
 };
 
-hmc5883l_t hmc5883l_obj;
+//global "object"
+static hmc5883l_t hmc5883l_obj;
 
+static inline int16_t convert_buffer_16(uint8_t *buffer);
 
 void hmc5883l_init(){
   hmc5883l_obj.hmc5883l_data_queue = xQueueCreate(HMC5883L_DATA_SIZE, sizeof(uint8_t));
@@ -108,14 +112,16 @@ uint8_t hmc5883l_configure(){
   //Based on data sheet pages 12, 13 and 14
   uint8_t retVal = 0;
 
-  hmc5883l_obj.setConfigA.write_data[1] = 0x70;
-  hmc5883l_obj.setConfigB.write_data[1] = 0xA0;
+  hmc5883l_obj.setConfigA.write_data[1] = 0x18; //average 1 sample per output, @75Hz, normal measurement mode
+  hmc5883l_obj.setConfigB.write_data[1] = 0x20; //default gain/resolution 0.92 mG/bit 
   hmc5883l_obj.setMode.write_data[1] = HMC5883L_MODE_CONTINUOUS;
 
   retVal = twi_add_task_to_queue(&hmc5883l_obj.setConfigA);
   retVal &= twi_add_task_to_queue(&hmc5883l_obj.setConfigB);
   retVal &= twi_add_task_to_queue(&hmc5883l_obj.setMode);
 
+  //Since this is during startup
+  vTaskDelay(HMC5883L_STARTUP_WAIT);
   return retVal;
 }
 
@@ -127,7 +133,7 @@ uint8_t hmc5883l_read_data(){
 
 //Read values from magnetometer and store values in raw data struct
 //Time delay before calling this function depends on data rate set in register CRA
-uint8_t hmc5883l_fetch_queue_data(hmc5883l_rawdata_t *rawdata_ptr){
+uint8_t hmc5883l_fetch_queue_data(sensors_message_t *curr_sensor_readings){
   uint8_t status = 0;
   uint8_t queue_result[6];
   uint8_t queue_index = 0;
@@ -140,16 +146,15 @@ uint8_t hmc5883l_fetch_queue_data(hmc5883l_rawdata_t *rawdata_ptr){
         return 0;
       }
     }
-    rawdata_ptr->x_magnitude = (queue_result[0] << 8);  //XMSB
-    rawdata_ptr->x_magnitude |= queue_result[1];        //XMLB
-    rawdata_ptr->z_magnitude = (queue_result[2] << 8);  //ZMSB
-    rawdata_ptr->z_magnitude |= queue_result[3];        //ZLSB
-    rawdata_ptr->y_magnitude = (queue_result[4] << 8);  //YMSB
-    rawdata_ptr->y_magnitude |= queue_result[5];        //YLSB
+    curr_sensor_readings->hmc5883l_x = convert_buffer_16(queue_result);
+    curr_sensor_readings->hmc5883l_z = convert_buffer_16((queue_result + 2));
+    curr_sensor_readings->hmc5883l_y = convert_buffer_16((queue_result + 4));
   
-
     twi_add_task_to_queue(&hmc5883l_obj.resetRegPointer);
   }
   return status;
 }
 
+static inline int16_t convert_buffer_16(uint8_t *buffer) {
+  return ((int16_t)buffer[0] << 8*1) | ((int16_t)buffer[1] << 8*0);
+}

@@ -32,6 +32,9 @@ typedef struct {
   int32_t rocket_pressure;
   int32_t Si7021_A20_temp;
   uint16_t Si7021_A20_rh;
+  int16_t hmc5883l_x;
+  int16_t hmc5883l_z;
+  int16_t hmc5883l_y;
   uint32_t time_stamp;
 } sensors_message_t;
 
