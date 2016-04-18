@@ -259,5 +259,5 @@ static inline uint32_t convert_buffer_24(uint8_t *buffer) {
 }
 
 static inline uint16_t convert_buffer_16(uint8_t *buffer) {
-	return ((uint16_t)buffer[0] << 8*1) | ((uint32_t)buffer[1] << 8*0);
+	return ((uint16_t)buffer[0] << 8*1) | ((uint16_t)buffer[1] << 8*0);
 }
