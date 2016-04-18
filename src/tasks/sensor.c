@@ -29,6 +29,7 @@
 #define BASE_HERTZ_MODIFIER 40000
 
 enum sensor_queue_state_type {
+	SENSOR_ENTRY_50Hz,
 	SENSOR_ENTRY_100Hz,
 	SENSOR_ENTRY_400Hz,
 	SENSOR_ENTRY_800Hz,
@@ -83,11 +84,14 @@ static void sensor_task_loop(void * pvParameters)
   //Setup sensor drivers
   // ============================
   sensor_initialize();
-  startup_timer();
+  
   ms5607_02ba_reset();
+  twi_process_queue();
   ms5607_02ba_load_prom();
+  
+  startup_timer();
+  
 	// ============================
-
   for(;;) {
 	// Wait until a timed event occurs. This is when other tasks get to execute
     xQueueReceive(sensor_queue, &timer_update, portMAX_DELAY);
@@ -115,11 +119,13 @@ static void sensor_task_loop(void * pvParameters)
       case SENSOR_ENTRY_800Hz:
         break;
 	  case SENSOR_ENTRY_400Hz:
-	  	twi_add_task_to_queue(&ms5607_02ba.prepareD2);
-	  	get_ms5607_data_countdown = 26; // this might not work
+		ms5607_02ba_convert_d2();
+	  	get_ms5607_data_countdown = 26; 
 	    break;
       case SENSOR_ENTRY_100Hz:
         break;
+	  case SENSOR_ENTRY_50Hz:
+		break;
 	  case SENSOR_ENTRY_NONE:
 	    break;
     }
@@ -136,7 +142,7 @@ static void sensor_task_loop(void * pvParameters)
 
 static void sensor_initialize() {
 	ms5607_02ba_init();
-	nrf24l01p_init();
+	// nrf24l01p_init();
 }
 
 // NOTE: send_to_transceiver not yet used
@@ -169,11 +175,15 @@ static void startup_timer()
 
 static void protocol_timer_overflow_handler() {
 	static uint8_t hertz_state = 0;
+	static uint8_t fifty_hertz_state = 0;
 	
 	if (hertz_state == 0) {
 		add_priority_event(SENSOR_ENTRY_100Hz, NULL);
 		add_priority_event(SENSOR_ENTRY_400Hz, NULL);
 		add_priority_event(SENSOR_ENTRY_800Hz, NULL);
+		if (fifty_hertz_state == 0) {
+			add_priority_event(SENSOR_ENTRY_50Hz,NULL);
+		}
 	}
 	else if ((hertz_state & 7) == 0) {
 		add_priority_event(SENSOR_ENTRY_400Hz, NULL);
@@ -188,6 +198,11 @@ static void protocol_timer_overflow_handler() {
 	if (hertz_state == 31)
 	{
 		hertz_state = 0;
+		
+		if (fifty_hertz_state == 0)
+			fifty_hertz_state+=1;
+		else
+			fifty_hertz_state = 0;
 	}
 	else{
 		hertz_state+=1;

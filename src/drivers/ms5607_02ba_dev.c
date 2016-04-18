@@ -123,7 +123,10 @@ uint8_t ms5607_02ba_load_prom(void) {
 		
 		twi_add_task_to_queue(&ms5607_02ba.preparePromReg);
 		twi_add_task_to_queue(&ms5607_02ba.getPromReg);
+		twi_process_queue_blocking();
 		
+	}
+	for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++) {
 		*((uint16_t *)&prom_data + prom_addr) = ms5607_02ba_fetch_queue_data_blocking();
 	}
 }
