@@ -3,7 +3,7 @@
  *
  * Created: 11/19/2015 8:59:23 PM
  *  Authors: Bryce Carter, Nigil Lee, Tim Rupprecht
- */ 
+ */
 
 #include "sensor.h"
 
@@ -16,6 +16,7 @@
 #include "ms5607_02ba_dev.h"
 // #include "fxls8471qr1.h"
 // #include "l3g4200d.h"
+#include "Si7021-A20.h"
 #include "nrf24l01p.h"
 #include "message_types.h"
 #include "transceiver.h"
@@ -84,13 +85,13 @@ static void sensor_task_loop(void * pvParameters)
   //Setup sensor drivers
   // ============================
   sensor_initialize();
-  
+
   ms5607_02ba_reset();
   twi_process_queue();
   ms5607_02ba_load_prom();
-  
+
   startup_timer();
-  
+
 	// ============================
   for(;;) {
 	// Wait until a timed event occurs. This is when other tasks get to execute
@@ -120,11 +121,13 @@ static void sensor_task_loop(void * pvParameters)
         break;
 	  case SENSOR_ENTRY_400Hz:
 		ms5607_02ba_convert_d2();
-	  	get_ms5607_data_countdown = 26; 
+	  	get_ms5607_data_countdown = 26;
 	    break;
       case SENSOR_ENTRY_100Hz:
         break;
 	  case SENSOR_ENTRY_50Hz:
+      Si7021_A20_issue_rh_read();
+      Si7021_A20_receive_rh_read();
 		break;
 	  case SENSOR_ENTRY_NONE:
 	    break;
@@ -134,6 +137,7 @@ static void sensor_task_loop(void * pvParameters)
 	ms5607_02ba_fetch_queue_press(&current_sensor_readings);
 	ms5607_02ba_fetch_queue_temp(&current_sensor_readings);
 
+    Si7021_A20_fetch_queue_rh(&current_sensor_readings);
 
 	// send_to_tranceiver();
 	twi_process_queue();
@@ -166,17 +170,17 @@ static void startup_timer()
 	tc_enable(&SENSOR_TIMER);
 	tc_set_wgm(&SENSOR_TIMER, TC_WG_NORMAL);
 	tc_write_period(&SENSOR_TIMER, F_CPU / (32 * BASE_HERTZ_MODIFIER));
-	
+
 	tc_set_overflow_interrupt_callback(&SENSOR_TIMER, protocol_timer_overflow_handler);
 	tc_set_overflow_interrupt_level(&SENSOR_TIMER, TC_INT_LVL_LO);
-	
+
 	tc_write_clock_source(&SENSOR_TIMER, TC_CLKSEL_DIV1_gc);
 }
 
 static void protocol_timer_overflow_handler() {
 	static uint8_t hertz_state = 0;
 	static uint8_t fifty_hertz_state = 0;
-	
+
 	if (hertz_state == 0) {
 		add_priority_event(SENSOR_ENTRY_100Hz, NULL);
 		add_priority_event(SENSOR_ENTRY_400Hz, NULL);
@@ -194,11 +198,11 @@ static void protocol_timer_overflow_handler() {
 	}
 	add_priority_event(SENSOR_CHECK_TWI_3200Hz, NULL);
 
-	
+
 	if (hertz_state == 31)
 	{
 		hertz_state = 0;
-		
+
 		if (fifty_hertz_state == 0)
 			fifty_hertz_state+=1;
 		else
