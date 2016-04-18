@@ -444,6 +444,12 @@
     <Compile Include="src\drivers\ms5607_02ba_dev.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\drivers\Si7021-A20.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\Si7021-A20.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\freertos\port\heap_4.c">
       <SubType>compile</SubType>
     </Compile>

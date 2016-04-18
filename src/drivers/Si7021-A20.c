@@ -4,7 +4,7 @@ Author: Matan Silver
 Created: 2/2/2016
 */
 
-#include <Si7021-A20.h>
+#include "Si7021-A20.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -29,6 +29,7 @@ Created: 2/2/2016
 #define WRITE_HEATER_CTRL_REG 0x51
 #define READ_HEATER_CTRL_REG 0x11
 
+#define DATA_QUEUE_DEPTH 5
 //IO definitions
 #define I2C_CS_PIN //????
 //PE0 = SDA, PE1 = SCL
@@ -40,6 +41,8 @@ Created: 2/2/2016
 #define RH_SCALAR 125
 
 Si7021_A20_t Si7021_A20;
+
+static inline int32_t convert_to_celsius(uint16_t Temp_Code);
 
 Si7021_A20_init()
 {
@@ -83,12 +86,20 @@ Si7021_A20_init()
 	Si7021_A20.receive_rh_read.length = 8;
 }
 
-uint8_t Si7021_A20_issue_temp_read() {
-	twi_add_task_to_queue(&Si7021_A20.issue_temp_read);
+uint8_t Si7021_A20_issue_temp_read_noholds() {
+	twi_add_task_to_queue(&Si7021_A20.issue_temp_read_no_hold);
 }
-uint8_t Si7021_A20_issue_rh_read() {
-	twi_add_task_to_queue(&Si7021_A20.issue_temp_read);
+uint8_t Si7021_A20_issue_rh_read_noholds() {
+	twi_add_task_to_queue(&Si7021_A20.issue_rh_read_no_hold);
 }
+
+uint8_t Si7021_A20_issue_temp_read_holds() {
+	twi_add_task_to_queue(&Si7021_A20.issue_temp_read_hold);
+}
+uint8_t Si7021_A20_issue_rh_read_holds() {
+	twi_add_task_to_queue(&Si7021_A20.issue_rh_read_hold);
+}
+
 uint8_t Si7021_A20_receive_temp_read() {
 	twi_add_task_to_queue(&Si7021_A20.receive_temp_read);
 }
@@ -109,7 +120,7 @@ static uint16_t convert_to_relative(uint16_t RH_Code) //takes RH_Code, returns p
 	}
 	return RH; //factor of RH_OFFSET larger than RH from 1 to 100
 }
-static int32_t convert_to_celsius(uint16_t Temp_Code)
+static inline int32_t convert_to_celsius(uint16_t Temp_Code)
 {
 	return ((17572*Temp_Code)-4685*TEMP_OFFSET); //offset by 6553600 (65536 * 100)
 }
@@ -127,7 +138,7 @@ uint8_t Si7021_A20_fetch_queue_temp(sensors_message_t* curr_sensor_readings) {
 		for (uint8_t queue_index = 0; queue_index < 3; queue_index++) {
 			xQueueReceive(Si7021_A20.Si7021_A20_temperature_data_queue, &queue_result[queue_index], 0);
 		}
-		Si7021_A20.temp = convert_to_celcius(queue_result);
+		Si7021_A20.temp = convert_to_celsius(queue_result);
 		curr_sensor_readings->Si7021_A20_temp = Si7021_A20.temp;
 	}
 	return status;

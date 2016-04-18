@@ -45,8 +45,13 @@ typedef struct {
 
 void Si7021_A20_init();
 
-uint8_t Si7021_A20_issue_temp_read();
-uint8_t Si7021_A20_issue_rh_read();
+uint8_t Si7021_A20_issue_temp_read_holds();
+uint8_t Si7021_A20_issue_rh_read_holds();
+
+uint8_t Si7021_A20_issue_temp_read_noholds();
+uint8_t Si7021_A20_issue_rh_read_noholds();
+
+
 uint8_t Si7021_A20_receive_temp_read();
 uint8_t Si7021_A20_receive_rh_read();
 

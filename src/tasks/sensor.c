@@ -126,8 +126,9 @@ static void sensor_task_loop(void * pvParameters)
       case SENSOR_ENTRY_100Hz:
         break;
 	  case SENSOR_ENTRY_50Hz:
-      Si7021_A20_issue_rh_read();
-      Si7021_A20_receive_rh_read();
+		Si7021_A20_issue_rh_read_holds();
+		// Si7021_A20_issue_rh_read_noholds();
+		Si7021_A20_receive_rh_read();
 		break;
 	  case SENSOR_ENTRY_NONE:
 	    break;
