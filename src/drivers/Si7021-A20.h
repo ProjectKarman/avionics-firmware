@@ -41,9 +41,6 @@ typedef struct {
     //receiving tasks
     twi_task_t receive_temp_read;
 	twi_task_t receive_rh_read;
-
-
-
 } Si7021_A20_t;
 
 void Si7021_A20_init();
