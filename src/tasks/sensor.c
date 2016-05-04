@@ -131,15 +131,15 @@ static void sensor_task_loop(void * pvParameters)
     }
     timer_update.type = SENSOR_ENTRY_NONE;
 
-	  ms5607_02ba_fetch_queue_press(&current_sensor_readings);
-	  ms5607_02ba_fetch_queue_temp(&current_sensor_readings);
+	ms5607_02ba_fetch_queue_press(&current_sensor_readings);
+	ms5607_02ba_fetch_queue_temp(&current_sensor_readings);
 
     Si7021_A20_fetch_queue_rh(&current_sensor_readings);
 
     hmc5883l_fetch_queue_data(&current_sensor_readings);
 
-	  // send_to_tranceiver();
-	  twi_process_queue();
+	// send_to_tranceiver();
+	twi_process_queue();
   }
 }
 
@@ -149,9 +149,9 @@ static void sensor_initialize() {
     ms5607_02ba_reset();
     twi_process_queue();
     ms5607_02ba_load_prom();
-    hmc5883l_init();
-    hmc5883l_configure();
-    startup_timer();
+    // hmc5883l_init();
+    // hmc5883l_configure();
+    // startup_timer();
 }
 
 // NOTE: send_to_transceiver not yet used

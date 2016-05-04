@@ -119,12 +119,12 @@ uint8_t ms5607_02ba_reset(void) {
 // a readable format
 uint8_t ms5607_02ba_load_prom(void) {
 	for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++)  {
+		// CMD_READ_REG(prom_addr) = (0xA0 | (prom_addr << 1))
 		ms5607_02ba.preparePromReg.write_data[0] = CMD_READ_REG(prom_addr);
 		
 		twi_add_task_to_queue(&ms5607_02ba.preparePromReg);
 		twi_add_task_to_queue(&ms5607_02ba.getPromReg);
 		twi_process_queue_blocking();
-		
 	}
 	for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++) {
 		*((uint16_t *)&prom_data + prom_addr) = ms5607_02ba_fetch_queue_data_blocking();
@@ -239,13 +239,13 @@ uint8_t ms5607_02ba_fetch_queue_press(sensors_message_t* curr_sensor_readings) {
 
 uint16_t ms5607_02ba_fetch_queue_data_blocking() {
 	uint16_t prom_data = 0x00;
-	uint8_t queue_result[2];
+	uint8_t queue_result[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 	uint8_t status;
 	
 	status = xQueuePeek(ms5607_02ba.ms5607_02ba_prom_reg_data_queue, &queue_result, portMAX_DELAY);
 
 	if (status == 1) {
-		for (uint8_t queue_index = 0; queue_index < 2; queue_index++) {
+		for (uint8_t queue_index = 0; queue_index < 6; queue_index++) {
 			xQueueReceive(ms5607_02ba.ms5607_02ba_prom_reg_data_queue, &queue_result[queue_index], portMAX_DELAY);
 		}
 		prom_data = convert_buffer_16(queue_result);

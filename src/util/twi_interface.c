@@ -27,15 +27,28 @@ twi_interface_t twie;
 
 uint8_t twi_init()
 {
+	volatile uint8_t ctrlaCheck = 0x00;
+	volatile uint8_t ctrlbCheck = 0x00;
+	volatile uint8_t ctrlcCheck = 0x00;
+	volatile uint8_t statusCheck = 0x00;
+	
     // Set the hardware configuration
     // ===========================================================
     TWI_MASTER_PORT.PIN0CTRL |= PORT_OPC_WIREDANDPULL_gc;
     TWI_MASTER_PORT.PIN1CTRL |= PORT_OPC_WIREDANDPULL_gc;
 
     PR.PRPE &= ~PR_TWI_bm; // Enabled TWI module clock
-
     TWI_MASTER.MASTER.BAUD = TWI_BAUD_REG;
-    TWI_MASTER.MASTER.CTRLA |= TWI_MASTER_ENABLE_bm | TWI_MASTER_WIEN_bm | TWI_MASTER_INTLVL_MED_gc;
+    TWI_MASTER.MASTER.CTRLA |= TWI_MASTER_ENABLE_bm | TWI_MASTER_WIEN_bm | TWI_MASTER_RIEN_bm | TWI_MASTER_INTLVL_MED_gc;
+	// TWI_MASTER.MASTER.CTRLB |= TWI_SMART_MODE_EN | TWI_QUICK_COMD_EN;
+	TWI_MASTER.MASTER.CTRLB = 0x7;
+	TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
+	TWI_MASTER.CTRL = 0x0;
+	sei();
+	
+	// Force TWI Controller into Idle State
+	// TWI_MASTER.MASTER.STATUS = TWI_MASTER_BUSSTATE_IDLE_gc;
+	
     // ===========================================================
 
     // Set up higher level objects
@@ -43,6 +56,14 @@ uint8_t twi_init()
 
     // Set the twie object properties
     twie.twi_bus_locked = 0;
+	
+	vTaskDelay(1000);
+	
+	ctrlaCheck = TWI_MASTER.MASTER.CTRLA;
+	ctrlbCheck = TWI_MASTER.MASTER.CTRLB;
+	ctrlcCheck = TWI_MASTER.MASTER.CTRLC;
+	statusCheck = TWI_MASTER.MASTER.STATUS;
+	
     return 0;
 }
 
@@ -55,11 +76,13 @@ uint8_t twi_add_task_to_queue(twi_task_t *task)
 uint8_t start_task_from_queue(void)
 {
     twi_task_t *task = 0;
+	uint8_t masterStatus = 0x1;
 
     if (xQueuePeek(twie.twi_todo_queue, task, 0) == pdTRUE)
     {
         twie.twi_device_addr = task->device_addr;
-
+		
+		// TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc;
         switch (task->mode)
         {
             case TWI_READ_MODE:
@@ -72,8 +95,19 @@ uint8_t start_task_from_queue(void)
                 return 0;
         }
         twie.twi_bus_locked = 1;
-        TWI_MASTER.MASTER.ADDR = task->device_addr << 1;
-        return 1; // item was processed from queue
+		
+		// Not quite sure why device_addr << 1; The tasks created
+		// at startup should handle all formatting of the address
+		// passed to the addr reg
+		
+		// TWI_MASTER.MASTER.CTRLC |= 0x1;
+		masterStatus = TWI_MASTER.MASTER.STATUS;
+		
+		// TWI_MASTER.MASTER.STATUS |= TWIM_STATUS_BUSY;
+		
+		// TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc;
+        TWI_MASTER.MASTER.ADDR = task->device_addr;
+		return 1; // item was processed from queue
     }
     return 2; // No items in queue to process
 }
@@ -106,10 +140,32 @@ uint8_t twi_process_queue_blocking()
 ISR(TWIE_TWIM_vect)
 {
     uint8_t task_done = 0;
-    twi_task_t *current_task = 0;
+    twi_task_t *current_task = NULL;
+	volatile uint8_t readBuffer = 0x1;
+	volatile uint8_t masterStatus = 0x0;
+	
+	masterStatus = TWI_MASTER.MASTER.STATUS;
+	// Check for Slave ACK
+	if (masterStatus & (0x1 << 5) == 1)
+	{
+		TWI_MASTER.MASTER.CTRLC = 0x3;
+		return;
+	}
+	
+	while (TWI_MASTER.MASTER.STATUS | ( 0x1 << 4))
+	
+	
+	// readBuffer = TWI_MASTER.MASTER.CTRLC;
+	// TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc;
+	// TWI_MASTER.MASTER.CTRLC |= 0x1;
+	
+	
+	readBuffer = TWI_MASTER.MASTER.CTRLC;
+	
     xQueuePeekFromISR(twie.twi_todo_queue, current_task);
     switch (current_task->mode)
     {
+		// TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc; //Set master in read/write mode
         case TWI_WRITE_MODE:
             if (twie.twi_write_data_index < current_task->length)
             {

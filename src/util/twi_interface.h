@@ -12,6 +12,12 @@
 #include "task.h"
 #include "twi_interface.h"
 
+// TWI Controller Settings
+#define CTRLC_START 0x1
+#define TWI_STATUS_IDLE (0x1 << 0)
+#define TWI_SMART_MODE_EN (1 << 0)
+#define TWI_QUICK_COMD_EN (1 << 1)
+
 #define MAX_SENSOR_DATA_WRITE_LENGTH 10
 #define MAX_SENSOR_DATA_READ_LENGTH 10
 
