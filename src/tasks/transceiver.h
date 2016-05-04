@@ -12,7 +12,8 @@
 #include "message_types.h"
 
 enum transceiver_message_type {
-  TRANSCEIVER_MSG_TYPE_GENERAL
+  TRANSCEIVER_MSG_TYPE_GENERAL,
+  TRANSCEIVER_MSG_TYPE_SENSORS
 };
 
 typedef struct {

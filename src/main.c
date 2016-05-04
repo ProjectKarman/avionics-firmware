@@ -12,6 +12,8 @@
 #include "transceiver.h"
 #include "sensor.h"
 
+#include "message_types.h"
+
 #define LEDA IOPORT_CREATE_PIN(PORTA, 0)
 #define LEDB IOPORT_CREATE_PIN(PORTA, 1)
 #define LEDC IOPORT_CREATE_PIN(PORTA, 2)

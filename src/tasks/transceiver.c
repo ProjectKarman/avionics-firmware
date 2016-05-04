@@ -136,18 +136,25 @@ static void transceiver_task_loop(void *p) {
           reset_time++;
         }
 
-        general_message_t content = {
-          .text = "Hello World!",
-          .len = 12
-        };
-
-        transceiver_message_t message = transceiver_message_create(TRANSCEIVER_MSG_TYPE_GENERAL, &content);
+        //general_message_t content = {
+        //  .text = "Hello World!",
+        //  .len = 12
+        //};
+		
+		sensors_message_t content = {
+			.gyro_data = {0,0,0},
+			.rocket_pressure = 42,
+			.rocket_tempurature = 39,
+			.time_stamp = 1001
+		};
+		
+		transceiver_message_t message = transceiver_message_create(TRANSCEIVER_MSG_TYPE_GENERAL, &content);
         
         transceiver_send_message(message, 0);
-        transceiver_send_message(message, 0);
-        transceiver_send_message(message, 0);
-        transceiver_send_message(message, 0);
-        transceiver_send_message(message, 0);
+        //transceiver_send_message(message, 0);
+        //transceiver_send_message(message, 0);
+        //transceiver_send_message(message, 0);
+        //transceiver_send_message(message, 0);
         break;
       case TRANSCEIVER_EVENT_TX_FRAME_PREPARE:
         prepare_transmit_frame();
