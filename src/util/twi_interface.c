@@ -38,16 +38,22 @@ uint8_t twi_init()
     TWI_MASTER_PORT.PIN1CTRL |= PORT_OPC_WIREDANDPULL_gc;
 
     PR.PRPE &= ~PR_TWI_bm; // Enabled TWI module clock
-    TWI_MASTER.MASTER.BAUD = TWI_BAUD_REG;
+    
+	// Set TWI BAUD Rate
+	TWI_MASTER.MASTER.BAUD = TWI_BAUD_REG;
+	
+	// Force TWI Controller into Idle State
+	TWI_MASTER.MASTER.STATUS = TWI_MASTER_BUSSTATE_IDLE_gc;
+	
+	// Set master ctrl regs
     TWI_MASTER.MASTER.CTRLA |= TWI_MASTER_ENABLE_bm | TWI_MASTER_WIEN_bm | TWI_MASTER_RIEN_bm | TWI_MASTER_INTLVL_MED_gc;
 	// TWI_MASTER.MASTER.CTRLB |= TWI_SMART_MODE_EN | TWI_QUICK_COMD_EN;
 	TWI_MASTER.MASTER.CTRLB = 0x7;
 	TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
+	
+	// Set TWI Controller CTRL Reg
 	TWI_MASTER.CTRL = 0x0;
 	sei();
-	
-	// Force TWI Controller into Idle State
-	// TWI_MASTER.MASTER.STATUS = TWI_MASTER_BUSSTATE_IDLE_gc;
 	
     // ===========================================================
 
@@ -152,7 +158,7 @@ ISR(TWIE_TWIM_vect)
 		return;
 	}
 	
-	while (TWI_MASTER.MASTER.STATUS | ( 0x1 << 4))
+	// while (TWI_MASTER.MASTER.STATUS | ( 0x1 << 4))
 	
 	
 	// readBuffer = TWI_MASTER.MASTER.CTRLC;
