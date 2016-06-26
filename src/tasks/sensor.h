@@ -3,7 +3,7 @@
  *
  * Created: 11/19/2015 8:59:37 PM
  *  Author: Nigil Lee
- */ 
+ */
 
 
 #ifndef SENSOR_H_

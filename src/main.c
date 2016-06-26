@@ -4,6 +4,7 @@
 
 #include "user_board.h"
 #include "asf.h"
+#include <inttypes.h>
 
 #include "FreeRTOS.h"
 #include "task.h"

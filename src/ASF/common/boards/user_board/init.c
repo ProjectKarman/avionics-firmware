@@ -11,6 +11,7 @@
 #include "nrf24l01p.h"
 #include "ms5607_02ba.h"
 #include "l3g4200d.h"
+#include "fxls8471qr1.h"
 
 void board_init(void)
 {
@@ -25,4 +26,5 @@ void board_init(void)
   nrf24l01p_init();
   ms5607_02ba_init();
   l3g4200d_init();
+  fxls8471qr1_init();
 }
