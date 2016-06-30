@@ -48,7 +48,5 @@ int main(void)
 
   vTaskStartScheduler();
   
-  printf("Hello world!");
-  
   return 0;
 }
