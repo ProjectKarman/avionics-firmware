@@ -3,7 +3,7 @@
  *
  * Created: 10/03/2015 11:55:36 PM
  *  Author: Timothy Rupprecht
- */ 
+ */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -49,6 +49,15 @@
 #define SEMAPHORE_BLOCK_TIME 0
 #define ASYNC_QUEUE_DEPTH 3
 
+#ifndef lambda
+#define lambda(l_ret_type, l_arguments, l_body)         \
+({                                                    \
+  l_ret_type l_anonymous_functions_name l_arguments   \
+  l_body                                            \
+  &l_anonymous_functions_name;                        \
+})
+#endif
+
 /* Private Types */
 typedef struct {
   uint16_t manufacturer;
@@ -91,15 +100,15 @@ static uint32_t twi_result;
 void ms5607_02ba_init(void) {
   TWI_MASTER_PORT.PIN0CTRL |= PORT_OPC_WIREDANDPULL_gc;
   TWI_MASTER_PORT.PIN1CTRL |= PORT_OPC_WIREDANDPULL_gc;
-  
+
   PR.PRPE &= ~PR_TWI_bm; // Enabled TWI module clock
-  
+
   TWI_MASTER.MASTER.BAUD = TWI_BAUD_REG;
   TWI_MASTER.MASTER.CTRLA |= TWI_MASTER_ENABLE_bm | TWI_MASTER_WIEN_bm | TWI_MASTER_INTLVL_MED_gc;
-  
+
   TWI_MASTER.MASTER.CTRLB |= TWI_MASTER_QCEN_bm | TWI_MASTER_SMEN_bm;
   TWI_MASTER.MASTER.STATUS |= TWI_MASTER_BUSSTATE_IDLE_gc;
-  
+
   // OS Level Structures
   aysnc_data_queue = xQueueCreate(ASYNC_QUEUE_DEPTH, sizeof(uint32_t));
   command_running_semaphore = xSemaphoreCreateBinary();
@@ -203,9 +212,9 @@ uint8_t ms5607_02ba_read_async(ms5607_02ba_callback_t callback) {
 
 uint8_t ms5607_02ba_load_prom(void) {
   if(xSemaphoreTake(command_running_semaphore, SEMAPHORE_BLOCK_TIME) == pdTRUE) {
-	  
+
 	op_buffer_len = 2;
-    for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++) {	
+    for (uint8_t prom_addr = 0; prom_addr < 8; prom_addr++) {
       send_command_async(CMD_READ_REG(prom_addr), get_data);
 	  *((uint16_t *)&prom_data + prom_addr) = convert_buffer_16(op_buffer);
     }
@@ -234,7 +243,7 @@ static void send_command_async(uint8_t cmd, ms5607_02ba_callback_t callback) {
   op_buffer_len = 1;
   current_command_type = CMD_TYPE_WRITE_ASYNC;
   current_op_callback = callback;
-  
+
   TWI_MASTER.MASTER.ADDR = DEVICE_ADDRESS << 1;
 }
 
@@ -252,7 +261,7 @@ rocket_temp_t ms5607_02ba_calculate_temp(uint32_t d2)	{
   rocket_temp_t t;
   rocket_temp_t dt;
   rocket_temp_t tempvar1;
-  
+
   dt = d2 - ((int32_t) prom_data.coefficient_5 * DT_MULTIPLICATIVE_OFFSET);
   tempvar1 = (dt * ( prom_data.coefficient_6 / T_MULTIPLICATIVE_OFFSET));
   t = ( (int32_t) 2000 * MAG_SHIFT) + tempvar1;
@@ -267,22 +276,22 @@ rocket_press_t ms5607_02ba_calculate_press(uint32_t d1, uint32_t d2) {
   int64_t sens;
   int64_t tempvar1;
   int64_t tempvar2;
-  
+
   dt = d2 - ((int32_t) prom_data.coefficient_5 * DT_MULTIPLICATIVE_OFFSET);
-  
+
   tempvar2 = (int64_t) prom_data.coefficient_4 * dt;
   tempvar1 = (int64_t) prom_data.coefficient_2 * OFF_MULTIPLICATIVE_OFFSET_1;
   off = tempvar1 + ((int64_t) tempvar2 / OFF_MULTIPLICATIVE_OFFSET_2);
-  
+
   tempvar1 = (int64_t) prom_data.coefficient_1 * SENS_MULTIPLICATIVE_OFFSET_1;
   tempvar2 =  ( (int64_t) ( (int64_t) prom_data.coefficient_3 * dt) / SENS_MULTIPLICATIVE_OFFSET_2);
   sens = tempvar1 + tempvar2;
-  
-  
+
+
   tempvar1 = (int64_t) d1 * sens;
-  tempvar2 =  (int64_t) tempvar1 / P_MULTIPLICATIVE_OFFSET_1;  
+  tempvar2 =  (int64_t) tempvar1 / P_MULTIPLICATIVE_OFFSET_1;
   p = (int64_t) (tempvar2 - off) / P_MULTIPLICATIVE_OFFSET_2;
-  
+
   return p;
 }
 
@@ -294,7 +303,7 @@ static inline uint16_t convert_buffer_16(uint8_t *buffer) {
   return ((uint16_t)buffer[0] << 8*1) | ((uint32_t)buffer[1] << 8*0);
 }
 
-/* Interrupts */
+// Interrupts
 ISR(TWIE_TWIM_vect) {
   if(op_buffer_index < op_buffer_len) {
 	TWI_MASTER.MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc; //Set master in read/write mode
@@ -322,9 +331,9 @@ ISR(TWIE_TWIM_vect) {
           current_op_callback();
         }
       case CMD_TYPE_READ_ASYNC: \
-        /* In this case the only time we are reading async is when we are getting
-         * ADC values.
-         */
+        // In this case the only time we are reading async is when we are getting
+        // ADC values.
+
         xSemaphoreGiveFromISR(command_running_semaphore, NULL);
         const uint32_t data = convert_buffer_24(op_buffer);
         xQueueSendToBackFromISR(aysnc_data_queue, &data, NULL);

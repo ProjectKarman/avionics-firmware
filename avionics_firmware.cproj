@@ -449,6 +449,9 @@
     <Compile Include="src\drivers\Si7021-A20.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\drivers\neutwi.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\freertos\port\heap_4.c">
       <SubType>compile</SubType>
     </Compile>
@@ -834,6 +837,7 @@
     <Folder Include="src\freertos\port\" />
     <Folder Include="src\freertos\source\" />
     <Folder Include="src\freertos\source\include\" />
+    <Folder Include="src\wmm" />
     <Folder Include="src\util" />
     <Folder Include="src\tasks" />
   </ItemGroup>

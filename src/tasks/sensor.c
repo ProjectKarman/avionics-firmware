@@ -13,7 +13,8 @@
 #include "task.h"
 #include "queue.h"
 
-#include "ms5607_02ba_dev.h"
+// #include "ms5607_02ba.h"
+// #include "hmc5883l.h"
 // #include "fxls8471qr1.h"
 // #include "l3g4200d.h"
 #include "Si7021-A20.h"
@@ -25,6 +26,10 @@
 
 /* Constant Variables */
 #define SENSOR_TIMER TCE2
+
+#define SESNORCOLLECTION_100Hz TCC2
+#define SESNORCOLLECTION_400Hz TCD2
+#define SESNORCOLLECTION_800Hz TCE2
 
 #define EVENT_DATA_SIZE_MAX 25
 #define EVENT_QUEUE_DEPTH 8
@@ -86,8 +91,13 @@ static void sensor_task_loop(void * pvParameters)
   //Setup sensor drivers
   // ============================
   sensor_initialize();
+  startup_timer();
+  ms5607_02ba_reset();
+  ms5607_02ba_load_prom();
 
-	// ============================
+  temp_debug_variable_breakpoint = 10;
+
+
   for(;;) {
 	// Wait until a timed event occurs. This is when other tasks get to execute
     xQueueReceive(sensor_queue, &timer_update, portMAX_DELAY);
@@ -113,12 +123,15 @@ static void sensor_task_loop(void * pvParameters)
 			// Add more countdowns here
 		break;
       case SENSOR_ENTRY_800Hz:
+		temp_debug_variable_breakpoint += 1;
         break;
 	  case SENSOR_ENTRY_400Hz:
 		ms5607_02ba_convert_d2();
 	  	get_ms5607_data_countdown = 26;
 	    break;
       case SENSOR_ENTRY_100Hz:
+		    temp_debug_variable_breakpoint += 3;
+        //hmc5883l_read_data_single(&magnetometer_data);
         break;
 	  case SENSOR_ENTRY_50Hz:
 		  Si7021_A20_issue_rh_read_holds();
@@ -212,6 +225,26 @@ static void protocol_timer_overflow_handler() {
 			fifty_hertz_state+=1;
 		else
 			fifty_hertz_state = 0;
+	}
+	else{
+		hertz_state+=1;
+	}
+}
+
+static void protocol_timer_overflow_handler() {
+	static uint8_t hertz_state = 0;
+
+	if (hertz_state == 0) {
+		add_priority_event(SENSOR_ENTRY_100Hz, NULL);
+	}
+	else if (!(hertz_state & 1)) {
+		add_priority_event(SENSOR_ENTRY_400Hz, NULL);
+	}
+	add_priority_event(SENSOR_ENTRY_800Hz, NULL);
+
+	if (hertz_state == 7)
+	{
+		hertz_state = 0;
 	}
 	else{
 		hertz_state+=1;

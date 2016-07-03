@@ -3,7 +3,7 @@
  *
  * Created: 4/7/2016 8:49:58 PM
  *  Author: Andrew Kaster
- */ 
+ */
 
 
 #include "hmc5883l.h"
@@ -113,7 +113,7 @@ uint8_t hmc5883l_configure(){
   uint8_t retVal = 0;
 
   hmc5883l_obj.setConfigA.write_data[1] = 0x18; //average 1 sample per output, @75Hz, normal measurement mode
-  hmc5883l_obj.setConfigB.write_data[1] = 0x20; //default gain/resolution 0.92 mG/bit 
+  hmc5883l_obj.setConfigB.write_data[1] = 0x20; //default gain/resolution 0.92 mG/bit
   hmc5883l_obj.setMode.write_data[1] = HMC5883L_MODE_CONTINUOUS;
 
   retVal = twi_add_task_to_queue(&hmc5883l_obj.setConfigA);
@@ -149,7 +149,7 @@ uint8_t hmc5883l_fetch_queue_data(sensors_message_t *curr_sensor_readings){
     curr_sensor_readings->hmc5883l_x = convert_buffer_16(queue_result);
     curr_sensor_readings->hmc5883l_z = convert_buffer_16((queue_result + 2));
     curr_sensor_readings->hmc5883l_y = convert_buffer_16((queue_result + 4));
-  
+
     twi_add_task_to_queue(&hmc5883l_obj.resetRegPointer);
   }
   return status;

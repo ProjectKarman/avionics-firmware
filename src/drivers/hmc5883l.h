@@ -3,7 +3,7 @@
  *
  * Created: 4/7/2016 8:51:32 PM
  *  Author: Andrew Kaster
- */ 
+ */
 
 
 #ifndef HMC5883L_H_
@@ -23,7 +23,7 @@ typedef struct hmc5883l_rawdata{
 
 typedef struct hmc5883l {
   QueueHandle_t hmc5883l_data_queue;
-  
+
   hmc5883l_rawdata_t magnetometer_data;
 
   twi_task_t setConfigA;
