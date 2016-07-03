@@ -13,7 +13,7 @@
 #include "task.h"
 #include "queue.h"
 
-// #include "ms5607_02ba.h"
+#include "ms5607_02ba_dev.h"
 // #include "hmc5883l.h"
 // #include "fxls8471qr1.h"
 // #include "l3g4200d.h"
@@ -95,7 +95,7 @@ static void sensor_task_loop(void * pvParameters)
   ms5607_02ba_reset();
   ms5607_02ba_load_prom();
 
-  temp_debug_variable_breakpoint = 10;
+  int temp_debug_variable_breakpoint = 10;
 
 
   for(;;) {
@@ -231,25 +231,26 @@ static void protocol_timer_overflow_handler() {
 	}
 }
 
-static void protocol_timer_overflow_handler() {
-	static uint8_t hertz_state = 0;
-
-	if (hertz_state == 0) {
-		add_priority_event(SENSOR_ENTRY_100Hz, NULL);
-	}
-	else if (!(hertz_state & 1)) {
-		add_priority_event(SENSOR_ENTRY_400Hz, NULL);
-	}
-	add_priority_event(SENSOR_ENTRY_800Hz, NULL);
-
-	if (hertz_state == 7)
-	{
-		hertz_state = 0;
-	}
-	else{
-		hertz_state+=1;
-	}
-}
+// Is the one we need, or the one before this?
+//static void protocol_timer_overflow_handler() {
+	//static uint8_t hertz_state = 0;
+//
+	//if (hertz_state == 0) {
+		//add_priority_event(SENSOR_ENTRY_100Hz, NULL);
+	//}
+	//else if (!(hertz_state & 1)) {
+		//add_priority_event(SENSOR_ENTRY_400Hz, NULL);
+	//}
+	//add_priority_event(SENSOR_ENTRY_800Hz, NULL);
+//
+	//if (hertz_state == 7)
+	//{
+		//hertz_state = 0;
+	//}
+	//else{
+		//hertz_state+=1;
+	//}
+//}
 
 static inline void add_priority_event(enum sensor_queue_state_type event_type, void *data) {
 	sensor_timer_t event = {
