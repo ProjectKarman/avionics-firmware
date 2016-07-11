@@ -18,8 +18,8 @@
 // TWI Peripheral Config
 #define TWI_MASTER       TWIE
 #define TWI_MASTER_PORT  PORTE
-#define TWI_FREQ        400000
-#define TWI_BAUD_REG 35 // ((F_SYS / (2 * TWI_FREQ)) - 5)
+#define TWI_FREQ         400000
+#define TWI_BAUD_REG     35 // ((F_SYS / (2 * TWI_FREQ)) - 5)
 
 #define TWI_TODO_QUEUE_LENGTH 10
 
