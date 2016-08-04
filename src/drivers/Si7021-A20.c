@@ -49,38 +49,38 @@ Si7021_A20_init()
 	Si7021_A20.Si7021_A20_temperature_data_queue = xQueueCreate(DATA_QUEUE_DEPTH, sizeof(uint8_t));
 	Si7021_A20.Si7021_A20_humidity_data_queue = xQueueCreate(DATA_QUEUE_DEPTH, sizeof(uint8_t));
 
-    //issue temp read hold
-    Si7021_A20.issue_temp_read_hold.device_addr = DEVICE_ADDRESS >> 1;
-    Si7021_A20.issue_temp_read_hold.mode = TWI_WRITE_MODE;
-    Si7021_A20.issue_temp_read_hold.write_data[0] = MEASURE_T_HOLD;
-    Si7021_A20.issue_temp_read_hold.length = 1;
+	//issue temp read hold
+	Si7021_A20.issue_temp_read_hold.device_addr = DEVICE_ADDRESS >> 1;
+	Si7021_A20.issue_temp_read_hold.mode = TWI_WRITE_MODE;
+	Si7021_A20.issue_temp_read_hold.write_data[0] = MEASURE_T_HOLD;
+	Si7021_A20.issue_temp_read_hold.length = 1;
 
-    //issue rh read hold
-    Si7021_A20.issue_rh_read_hold.device_addr = DEVICE_ADDRESS >> 1;
-    Si7021_A20.issue_rh_read_hold.mode = TWI_WRITE_MODE;
-    Si7021_A20.issue_rh_read_hold.write_data[0] = MEASURE_RH_HOLD;
-    Si7021_A20.issue_rh_read_hold.length = 1;
+	//issue rh read hold
+	Si7021_A20.issue_rh_read_hold.device_addr = DEVICE_ADDRESS >> 1;
+	Si7021_A20.issue_rh_read_hold.mode = TWI_WRITE_MODE;
+	Si7021_A20.issue_rh_read_hold.write_data[0] = MEASURE_RH_HOLD;
+	Si7021_A20.issue_rh_read_hold.length = 1;
 
-    //issue temp read no hold
-    Si7021_A20.issue_temp_read_no_hold.device_addr = DEVICE_ADDRESS >> 1;
+	//issue temp read no hold
+	Si7021_A20.issue_temp_read_no_hold.device_addr = DEVICE_ADDRESS >> 1;
 	Si7021_A20.issue_temp_read_no_hold.mode = TWI_WRITE_MODE;
 	Si7021_A20.issue_temp_read_no_hold.write_data[0] = MEASURE_T_NO_HOLD;
 	Si7021_A20.issue_temp_read_no_hold.length = 1;
 
-    //issue rh read no hold
-    Si7021_A20.issue_rh_read_no_hold.device_addr = DEVICE_ADDRESS >> 1;
+	//issue rh read no hold
+	Si7021_A20.issue_rh_read_no_hold.device_addr = DEVICE_ADDRESS >> 1;
 	Si7021_A20.issue_rh_read_no_hold.mode = TWI_WRITE_MODE;
 	Si7021_A20.issue_rh_read_no_hold.write_data[0] = MEASURE_RH_NO_HOLD;
 	Si7021_A20.issue_rh_read_no_hold.length = 1;
 
-    //get temp read
-    Si7021_A20.receive_temp_read.return_queue = Si7021_A20.Si7021_A20_humidity_data_queue;
+	//get temp read
+	Si7021_A20.receive_temp_read.return_queue = Si7021_A20.Si7021_A20_humidity_data_queue;
 	Si7021_A20.receive_temp_read.device_addr = DEVICE_ADDRESS >> 1;
 	Si7021_A20.receive_temp_read.mode = TWI_READ_MODE;
 	Si7021_A20.receive_temp_read.length = 4;
 
-    //get rh read
-    Si7021_A20.receive_rh_read.return_queue = Si7021_A20.Si7021_A20_temperature_data_queue;
+	//get rh read
+	Si7021_A20.receive_rh_read.return_queue = Si7021_A20.Si7021_A20_temperature_data_queue;
 	Si7021_A20.receive_rh_read.device_addr = DEVICE_ADDRESS >> 1;
 	Si7021_A20.receive_rh_read.mode = TWI_READ_MODE;
 	Si7021_A20.receive_rh_read.length = 8;
