@@ -162,6 +162,7 @@ static void sensor_initialize() {
     ms5607_02ba_reset();
     twi_process_queue();
     ms5607_02ba_load_prom();
+		Si7021_A20_init();
     // hmc5883l_init();
     // hmc5883l_configure();
     // startup_timer();

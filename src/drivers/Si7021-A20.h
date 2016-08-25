@@ -23,23 +23,23 @@ typedef struct {
 	QueueHandle_t Si7021_A20_temperature_data_queue;
 	QueueHandle_t Si7021_A20_humidity_data_queue;
 
-    int32_t temp;
-    uint16_t rh;
+	int32_t temp;
+	uint16_t rh;
 	// twi_interface_t* twi_interface;
 
 	int32_t Si7021_A20_tempurature;
 	uint32_t Si7021_A20_humidity;
 
-    //issue tasks hold
+	//issue tasks hold
 	twi_task_t issue_temp_read_hold;
 	twi_task_t issue_rh_read_hold;
 
-    //issue tasks no hold
+	//issue tasks no hold
 	twi_task_t issue_temp_read_no_hold;
 	twi_task_t issue_rh_read_no_hold;
 
-    //receiving tasks
-    twi_task_t receive_temp_read;
+	//receiving tasks
+	twi_task_t receive_temp_read;
 	twi_task_t receive_rh_read;
 } Si7021_A20_t;
 
