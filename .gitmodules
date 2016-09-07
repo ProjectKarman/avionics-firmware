@@ -1,0 +1,3 @@
+[submodule "vendor/Ceedling"]
+	path = vendor/Ceedling
+	url = https://github.com/ThrowTheSwitch/Ceedling.git

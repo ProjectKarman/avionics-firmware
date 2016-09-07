@@ -1,8 +1,13 @@
 # Project Karman Avionics Firmware
 
-This repository contians the firmware for the project karman rocket.
+This repository contains the firmware for the Project Karman rocket.
 
-## Setup
+## Getting Started
+```
+git clone --recursive https://github.com/ProjectKarman/avionics-firmware.git
+```
+
+### Setup
 
 The project solution can be opened using the Atmel Studio software. It should be able to be built directly with only a few compiler warnings.
 
