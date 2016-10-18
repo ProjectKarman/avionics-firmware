@@ -1,5 +1,5 @@
 # Project Karman Avionics Firmware
-## This repository is DEPRECATED. You can find the current version [here](https://github.com/ProjectKarman/avionics).
+## This repository is DEPRECATED. You can find the current version [here](https://github.com/AIAANortheastern/karman-avionics).
 
 This repository contains the firmware for the Project Karman rocket.
 
